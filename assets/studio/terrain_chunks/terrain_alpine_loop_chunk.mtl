@@ -1,0 +1,17 @@
+# Wavefront MTL: Seamless Alpine & Volcano Terrain Chunk
+newmtl terrain_ground
+Kd 0.28 0.36 0.46
+illum 1
+
+newmtl terrain_peaks
+Kd 0.92 0.96 1.00
+illum 1
+
+newmtl terrain_fluid
+Kd 0.95 0.32 0.05
+Ke 0.75 0.20 0.02
+illum 2
+
+newmtl terrain_props
+Kd 0.15 0.38 0.26
+illum 1

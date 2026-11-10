@@ -1,0 +1,18 @@
+# Wavefront MTL: Enemy Argon Supersonic Wind & Vortex VFX
+newmtl slipstream_ribbons
+Kd 0.65 0.88 1.00
+Ke 0.35 0.72 1.00
+d 0.55
+illum 2
+
+newmtl wingtip_vortices
+Kd 0.85 0.55 1.00
+Ke 0.65 0.30 1.00
+d 0.72
+illum 2
+
+newmtl mach_vapor_cone
+Kd 0.90 0.82 1.00
+Ke 0.50 0.38 0.95
+d 0.32
+illum 2
