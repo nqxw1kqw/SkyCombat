@@ -6,6 +6,7 @@
 #include <DxLib.h>
 #endif
 #include <array>
+#include <cstdint>
 
 namespace sky {
 
@@ -81,8 +82,8 @@ void AircraftRenderer::drawBullet(const Bullet& b) const {
 void AircraftRenderer::drawMissile(const Missile& m) const {
 #if !defined(SKY_PORTABLE) && defined(_WIN32)
     if (!m.isActive()) return;
-    Vec3 p0 = m.position;
-    Vec3 p1 = m.position - m.forward() * 4.0;
+    Vec3 p0 = m.position();
+    Vec3 p1 = m.position() - m.forward() * 4.0;
     DrawLine3D(VGet(float(p0.x), float(p0.y), float(p0.z)),
                VGet(float(p1.x), float(p1.y), float(p1.z)),
                GetColor(255, 255, 255));

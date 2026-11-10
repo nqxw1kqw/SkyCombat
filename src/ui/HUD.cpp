@@ -1,5 +1,6 @@
 #include "HUD.h"
 #include <cstdio>
+#include <cstdint>
 
 #if !defined(SKY_PORTABLE) && defined(_WIN32)
 #include <DxLib.h>
