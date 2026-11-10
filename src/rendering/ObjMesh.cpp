@@ -55,7 +55,7 @@ int vertexIndex(const std::string& token, size_t vertexCount) {
 
 } // namespace
 
-bool ObjMesh::load(const std::string& objPath, double targetLength) {
+bool ObjMesh::loadRaw(const std::string& objPath) {
     triangles_.clear();
     std::ifstream in(objPath);
     if (!in) return false;
@@ -100,24 +100,38 @@ bool ObjMesh::load(const std::string& objPath, double targetLength) {
             }
         }
     }
-    if (triangles_.empty()) return false;
+    return !triangles_.empty();
+}
 
-    // Normalise: centre the bounding box on the origin and scale the
-    // longest axis to the target length so any source model lands at
-    // game scale regardless of its authoring units.
-    Vec3 mn = triangles_[0].p[0], mx = mn;
+void ObjMesh::bounds(Vec3& mn, Vec3& mx) const {
+    mn = triangles_.empty() ? Vec3{} : triangles_[0].p[0];
+    mx = mn;
     for (const auto& tri : triangles_) {
         for (const auto& p : tri.p) {
             mn.x = std::min(mn.x, p.x); mn.y = std::min(mn.y, p.y); mn.z = std::min(mn.z, p.z);
             mx.x = std::max(mx.x, p.x); mx.y = std::max(mx.y, p.y); mx.z = std::max(mx.z, p.z);
         }
     }
-    const Vec3 center = (mn + mx) * 0.5;
-    const double extent = std::max({mx.x - mn.x, mx.y - mn.y, mx.z - mn.z});
-    const double scale = extent > 1e-9 ? targetLength / extent : 1.0;
+}
+
+void ObjMesh::applyTransform(const Vec3& center, double scale) {
     for (auto& tri : triangles_) {
         for (auto& p : tri.p) p = (p - center) * scale;
     }
+}
+
+bool ObjMesh::load(const std::string& objPath, double targetLength) {
+    if (!loadRaw(objPath)) return false;
+
+    // Normalise: centre the bounding box on the origin and scale the
+    // longest axis to the target length so any source model lands at
+    // game scale regardless of its authoring units.
+    Vec3 mn, mx;
+    bounds(mn, mx);
+    const Vec3 center = (mn + mx) * 0.5;
+    const double extent = std::max({mx.x - mn.x, mx.y - mn.y, mx.z - mn.z});
+    const double scale = extent > 1e-9 ? targetLength / extent : 1.0;
+    applyTransform(center, scale);
     return true;
 }
 

@@ -18,6 +18,12 @@ public:
     };
 
     bool load(const std::string& objPath, double targetLength);
+    // Parses without normalising, keeping the authored coordinates. Used
+    // for attachments (plumes, airflow shells) that share the parent
+    // model's local frame and must receive the same transform as it.
+    bool loadRaw(const std::string& objPath);
+    void bounds(Vec3& mn, Vec3& mx) const;
+    void applyTransform(const Vec3& center, double scale);
     bool empty() const { return triangles_.empty(); }
     const std::vector<Triangle>& triangles() const { return triangles_; }
 
