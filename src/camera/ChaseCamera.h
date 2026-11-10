@@ -1,14 +1,22 @@
 #pragma once
 #include "aircraft/Aircraft.h"
+
 namespace sky {
-struct CameraPose { Vec3 position{},target{},up{0,1,0}; double fovDegrees{65}; };
+
+class IHeightProvider;
+
+struct CameraPose { Vec3 position{}, target{}, up{0, 1, 0}; double fovDegrees{65}; };
+
 class ChaseCamera {
 public:
-    void reset(const Aircraft& aircraft);
-    void update(const Aircraft& aircraft,double dt);
+    void reset(const Aircraft& aircraft, const IHeightProvider* terrain = nullptr);
+    void update(const Aircraft& aircraft, double dt, const IHeightProvider* terrain = nullptr);
     const CameraPose& pose() const { return pose_; }
+
 private:
     CameraPose desired(const Aircraft& aircraft) const;
+    void applyTerrainAvoidance(const IHeightProvider* terrain);
     CameraPose pose_;
 };
+
 }
