@@ -2,45 +2,45 @@
 
 namespace sky {
 
-// Tuning for mouse flight steering (Mouse + Keyboard control prompt, §5).
-// Angles are unitless commands in [-1, 1]; rates live in FlightController.
+// Tuning for Direct Mouse Flight (relative mouse control): the mouse
+// reports per-frame movement in pixels, converted here to rotation in
+// radians. Rates and limits of the airframe itself live in FlightTuning.
 struct MouseFlightConfig {
-    double deadzone = 0.08;            // radial deadzone, normalised units;
-    double responseExponent = 1.4;     // response curve power
-    double smoothingSharpness = 12.0;  // 1/s, frame-rate independent smoothing
-    double mouseYawSensitivity = 1.0;
-    double mousePitchSensitivity = 1.0;
+    double mouseSensitivityX = 0.0022; // radians of yaw per pixel
+    double mouseSensitivityY = 0.0022; // radians of pitch per pixel
+    bool invertY = false;              // flip mouse pitch direction
+    double smoothingSharpness = 12.0;  // 1/s, release rate of pending rotation
+    double maxDeltaPerFrame = 0.35;    // radians; spike clamp per render frame
     double keyboardPitchWeight = 0.75; // W/S contribution next to the mouse
     double manualRollWeight = 1.0;     // A/D manual roll strength
-    bool invertMouseY = false;
 };
 
-// Converts a normalised cursor offset (x right, y up, each in [-1, 1],
-// measured from the window centre) into pitch/yaw commands: radial
-// deadzone with continuous remap, a power response curve, and exponential
-// smoothing that behaves the same at any frame rate.
+// Relative mouse steering: each frame's pixel delta becomes a rotation
+// command (radians). Incoming rotation is clamped per frame (focus or
+// recenter spikes can never teleport the nose), accumulated, and released
+// through a frame-rate independent exponential filter that conserves the
+// total angle — smoothing spreads a flick over a few frames without
+// eating any of it. A still mouse produces exactly zero command, so the
+// aircraft simply holds its heading.
 class MouseSteering {
 public:
     struct Command {
-        double pitch{};
-        double yaw{};
+        double mouseYaw{};   // radians to yaw this step (+ = same sense as turn +)
+        double mousePitch{}; // radians to pitch this step (+ = nose up)
     };
 
     explicit MouseSteering(const MouseFlightConfig& config = {}) : config_(config) {}
 
-    Command update(double nx, double ny, double dt);
+    // deltaX/deltaY are raw screen pixels (Y down, as the OS reports).
+    Command update(double deltaX, double deltaY, double dt);
     void reset();
 
     const MouseFlightConfig& config() const { return config_; }
-    double rawX() const { return rawX_; } // last normalised input, for the reticle
-    double rawY() const { return rawY_; }
 
 private:
     MouseFlightConfig config_;
-    double rawX_{};
-    double rawY_{};
-    double smoothPitch_{};
-    double smoothYaw_{};
+    double pendingYaw_{};
+    double pendingPitch_{};
 };
 
 } // namespace sky

@@ -23,25 +23,23 @@ InputState Input::update(const KeyboardState& k) {
 InputState Input::update(const KeyboardState& k, const MouseState& m, double dt) {
     InputState result{};
 
-    // Normalise the cursor against the client centre (prompt §3), then let
-    // MouseSteering apply deadzone, response curve and smoothing. A window
-    // that lost focus contributes nothing and resets the smoothing state,
-    // so returning to the game never produces a stale-input jump.
+    // Direct Mouse Flight: the app layer delivers this frame's relative
+    // mouse movement; MouseSteering converts it to rotation in radians.
+    // Without capture (paused or unfocused) the steering state resets, so
+    // returning to the game never produces a stale-input jump.
     MouseSteering::Command cmd{};
-    if (m.active && m.clientWidth > 0 && m.clientHeight > 0) {
-        const double nx = std::clamp((double(m.x) - m.clientWidth * 0.5) / (m.clientWidth * 0.5), -1.0, 1.0);
-        const double ny = std::clamp((m.clientHeight * 0.5 - double(m.y)) / (m.clientHeight * 0.5), -1.0, 1.0);
-        cmd = steering_.update(nx, ny, dt);
+    if (m.active) {
+        cmd = steering_.update(double(m.deltaX), double(m.deltaY), dt);
     } else {
         steering_.reset();
     }
-    result.mouseNX = steering_.rawX();
-    result.mouseNY = steering_.rawY();
+    result.flight.mouseYaw = cmd.mouseYaw;
+    result.flight.mousePitch = cmd.mousePitch;
 
     const MouseFlightConfig& cfg = steering_.config();
     const double keyboardPitch = (double(k.w) - double(k.s)) * cfg.keyboardPitchWeight;
-    result.flight.pitch = std::clamp(cmd.pitch + keyboardPitch, -1.0, 1.0);
-    result.flight.turn = cmd.yaw;
+    result.flight.pitch = std::clamp(keyboardPitch, -1.0, 1.0);
+    result.flight.turn = 0.0; // yaw comes from the mouse in this scheme
     result.flight.roll = (double(k.a) - double(k.d)) * cfg.manualRollWeight;
     result.flight.throttle = double(k.shift) - double(k.ctrl);
     result.flight.boost = k.shift && !k.ctrl;

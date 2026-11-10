@@ -2,66 +2,96 @@
 #include "core/MouseSteering.h"
 using namespace sky;
 
+// Direct Mouse Flight: pixel deltas in, radians out. Sums a command
+// stream over many zero-delta steps so the smoothing filter drains fully.
+static double drainYaw(MouseSteering& ms, double dt = 1.0 / 60) {
+    double total = 0;
+    for (int i = 0; i < 600; ++i) total += ms.update(0, 0, dt).mouseYaw;
+    return total;
+}
+static double drainPitch(MouseSteering& ms, double dt = 1.0 / 60) {
+    double total = 0;
+    for (int i = 0; i < 600; ++i) total += ms.update(0, 0, dt).mousePitch;
+    return total;
+}
+
 int main() {
     Tests t;
+    const MouseFlightConfig cfg; // defaults: 0.0022 rad/px, clamp 0.35 rad
 
-    {   // Cursor at the centre commands nothing.
+    {   // A still mouse commands exactly nothing, forever.
         MouseSteering ms;
-        auto cmd = ms.update(0.0, 0.0, 1.0 / 60);
-        t.check(near(cmd.pitch, 0) && near(cmd.yaw, 0), "centre is neutral");
+        bool allZero = true;
+        for (int i = 0; i < 120; ++i) {
+            auto cmd = ms.update(0, 0, 1.0 / 60);
+            allZero = allZero && cmd.mouseYaw == 0.0 && cmd.mousePitch == 0.0;
+        }
+        t.check(allZero, "still mouse is exactly zero");
     }
-    {   // Inside the radial deadzone the command stays zero.
+    {   // 100 px right yaws right by 100 * sensitivity in total.
         MouseSteering ms;
-        auto cmd = ms.update(0.05, -0.04, 1.0 / 60);
-        t.check(near(cmd.pitch, 0) && near(cmd.yaw, 0), "deadzone swallows small offsets");
+        double total = ms.update(100, 0, 1.0 / 60).mouseYaw + drainYaw(ms);
+        t.check(near(total, 100 * cfg.mouseSensitivityX, 0.005) && total > 0,
+                "mouse right yaws right, total conserved");
     }
-    {   // Full right deflection settles to yaw +1 (turn right), no pitch.
+    {   // Mouse up (negative screen deltaY) pitches the nose up.
         MouseSteering ms;
-        MouseSteering::Command cmd{};
-        for (int i = 0; i < 240; ++i) cmd = ms.update(1.0, 0.0, 1.0 / 60);
-        t.check(near(cmd.yaw, 1.0, 1e-6) && near(cmd.pitch, 0), "full right is yaw +1");
+        double total = ms.update(0, -100, 1.0 / 60).mousePitch + drainPitch(ms);
+        t.check(near(total, 100 * cfg.mouseSensitivityY, 0.005) && total > 0,
+                "mouse up pitches nose up");
     }
-    {   // Full up deflection settles to pitch +1 (nose up, project convention).
+    {   // Mouse down pitches the nose down.
         MouseSteering ms;
-        MouseSteering::Command cmd{};
-        for (int i = 0; i < 240; ++i) cmd = ms.update(0.0, 1.0, 1.0 / 60);
-        t.check(near(cmd.pitch, 1.0, 1e-6) && near(cmd.yaw, 0), "full up is pitch +1");
+        double total = ms.update(0, 100, 1.0 / 60).mousePitch + drainPitch(ms);
+        t.check(near(total, -100 * cfg.mouseSensitivityY, 0.005),
+                "mouse down pitches nose down");
     }
-    {   // Response curve: half deflection maps below half command.
+    {   // invertY flips pitch only.
+        MouseFlightConfig c = cfg;
+        c.invertY = true;
+        MouseSteering ms(c);
+        double total = ms.update(0, -100, 1.0 / 60).mousePitch + drainPitch(ms);
+        t.check(near(total, -100 * cfg.mouseSensitivityY, 0.005),
+                "invertY flips pitch sign");
+    }
+    {   // Sensitivity scales the total angle linearly.
+        MouseFlightConfig c = cfg;
+        c.mouseSensitivityX = cfg.mouseSensitivityX * 2;
+        MouseSteering ms(c);
+        double total = ms.update(50, 0, 1.0 / 60).mouseYaw + drainYaw(ms);
+        t.check(near(total, 100 * cfg.mouseSensitivityX, 0.005),
+                "sensitivity scales total rotation");
+    }
+    {   // A huge spike (focus jump) clamps to maxDeltaPerFrame per frame.
         MouseSteering ms;
-        MouseSteering::Command cmd{};
-        for (int i = 0; i < 240; ++i) cmd = ms.update(0.5, 0.0, 1.0 / 60);
-        const double expected = 0.3335; // ((0.5-0.08)/0.92)^1.4
-        t.check(near(cmd.yaw, expected, 0.01) && cmd.yaw < 0.5, "response curve softens mid range");
+        double total = ms.update(100000, 0, 1.0 / 60).mouseYaw + drainYaw(ms);
+        t.check(near(total, cfg.maxDeltaPerFrame, 0.005),
+                "spike clamps to per-frame max");
     }
-    {   // Smoothing is frame-rate independent: 1 x 100ms ~ 10 x 10ms.
+    {   // Smoothing spreads a flick: the first frame applies only a
+        // fraction, but nothing is lost in total.
+        MouseSteering ms;
+        auto first = ms.update(100, 0, 1.0 / 60);
+        double total = first.mouseYaw + drainYaw(ms);
+        t.check(first.mouseYaw > 0 && first.mouseYaw < 0.5 * 100 * cfg.mouseSensitivityX &&
+                near(total, 100 * cfg.mouseSensitivityX, 0.005),
+                "smoothing spreads without loss");
+    }
+    {   // Total applied rotation does not depend on frame rate.
         MouseSteering a, b;
-        auto ca = a.update(1.0, 0.0, 0.1);
-        MouseSteering::Command cb{};
-        for (int i = 0; i < 10; ++i) cb = b.update(1.0, 0.0, 0.01);
-        t.check(near(ca.yaw, cb.yaw, 0.02), "smoothing matches across frame rates");
+        double ta = a.update(120, -60, 1.0 / 30).mouseYaw;
+        ta += drainYaw(a, 1.0 / 30);
+        double tb = b.update(120, -60, 1.0 / 144).mouseYaw;
+        tb += drainYaw(b, 1.0 / 144);
+        t.check(near(ta, tb, 0.005) && near(ta, 120 * cfg.mouseSensitivityX, 0.005),
+                "total rotation is frame-rate independent");
     }
-    {   // Out-of-range cursor positions clamp into [-1, 1] commands.
+    {   // Reset discards pending rotation immediately.
         MouseSteering ms;
-        MouseSteering::Command cmd{};
-        for (int i = 0; i < 240; ++i) cmd = ms.update(2.0, -2.0, 1.0 / 60);
-        t.check(cmd.yaw <= 1.0 && cmd.yaw > 0.5 && cmd.pitch >= -1.0 && cmd.pitch < -0.5,
-                "commands clamp to unit range");
-    }
-    {   // invertMouseY flips pitch only.
-        MouseFlightConfig cfg;
-        cfg.invertMouseY = true;
-        MouseSteering ms(cfg);
-        MouseSteering::Command cmd{};
-        for (int i = 0; i < 240; ++i) cmd = ms.update(0.0, 1.0, 1.0 / 60);
-        t.check(near(cmd.pitch, -1.0, 1e-6), "invert Y flips pitch sign");
-    }
-    {   // Reset returns the command to neutral immediately.
-        MouseSteering ms;
-        for (int i = 0; i < 60; ++i) ms.update(1.0, 1.0, 1.0 / 60);
+        ms.update(500, 500, 1.0 / 60);
         ms.reset();
-        auto cmd = ms.update(0.0, 0.0, 1.0 / 60);
-        t.check(near(cmd.pitch, 0) && near(cmd.yaw, 0), "reset clears smoothing");
+        double total = drainYaw(ms) + drainPitch(ms);
+        t.check(near(total, 0.0, 1e-9), "reset discards pending rotation");
     }
 
     return t.finish();

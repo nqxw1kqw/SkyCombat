@@ -33,9 +33,10 @@ struct PolledInput {
     MouseState mouse;
 };
 
-PolledInput poll() {
+PolledInput poll(bool captureMouse) {
     // Inactive windows release controls rather than retaining stale input.
-    if (!GetActiveFlag()) return {};
+    static bool mouseArmed = false;
+    if (!GetActiveFlag()) { mouseArmed = false; return {}; }
     PolledInput out;
     out.keys = {
         CheckHitKey(KEY_INPUT_W) != 0,
@@ -54,10 +55,23 @@ PolledInput poll() {
     int mx = 0, my = 0;
     GetMousePoint(&mx, &my);
     const int buttons = GetMouseInput();
-    out.mouse = {mx, my, 1280, 720,
+    // Direct Mouse Flight: while gameplay capture is on, the cursor is
+    // hidden and re-centred every frame; the mouse input is the movement
+    // away from the centre since last frame. The first frame after
+    // capture (re)starts discards its delta, so neither the re-centre
+    // itself nor an Alt+Tab jump can jerk the aircraft.
+    int deltaX = 0, deltaY = 0;
+    if (captureMouse) {
+        if (mouseArmed) { deltaX = mx - 640; deltaY = my - 360; }
+        SetMousePoint(640, 360);
+        mouseArmed = true;
+    } else {
+        mouseArmed = false;
+    }
+    out.mouse = {deltaX, deltaY,
                  (buttons & MOUSE_INPUT_LEFT) != 0,
                  (buttons & MOUSE_INPUT_RIGHT) != 0,
-                 true};
+                 captureMouse};
     return out;
 }
 
@@ -79,7 +93,7 @@ int Game::run() {
     SetMainWindowText(L"SkyCombat - M5 Combat + AI");
     SetAlwaysRunFlag(TRUE);
     if (DxLib_Init() == -1) return 1;
-    SetMouseDispFlag(FALSE); // the steering marker replaces the OS cursor in play
+    SetMouseDispFlag(FALSE); // cursor hidden in play: captured + re-centred per frame
 
     SkySystem skySystem;
     int bgR = int(skySystem.colors().horizon.x * 255.0 + 0.5);
@@ -125,10 +139,11 @@ int Game::run() {
     double fpsTime = 0, fps = 0;
     int frames = 0;
     bool paused = false;
-    bool noseCamera = false;
+    int cameraPreset = 0; // 0 = chase, 1 = close chase, 2 = nose
+    double carryMouseYaw = 0, carryMousePitch = 0;
 
     while (ProcessMessage() == 0) {
-        const auto polled = poll();
+        const auto polled = poll(!paused);
         const double dt = time.tick();
 
         // Edge actions are latched at render cadence so a short R press is not lost.
@@ -137,11 +152,16 @@ int Game::run() {
             paused = !paused;
             SetMouseDispFlag(paused ? TRUE : FALSE); // pause hands the cursor back
         }
-        if (state.switchCamera) noseCamera = !noseCamera;
+        if (state.switchCamera) {
+            cameraPreset = (cameraPreset + 1) % 3;
+            camera.setFollowScale(cameraPreset == 1 ? 0.5 : 1.0);
+        }
 
         if (paused) {
             time.reset(); // drain the accumulator so resume does not fast-forward
         } else if (state.reset) {
+            carryMouseYaw = 0;
+            carryMousePitch = 0;
             current.reset();
             previous = current;
             camera.reset(current, &terrainSystem);
@@ -151,6 +171,13 @@ int Game::run() {
             missionSystem.reset(4);
             enemies = createInitialEnemies();
         } else {
+            // Mouse rotation is per render frame, physics runs on fixed
+            // steps: bank the frame's rotation and let the first step of
+            // the frame spend it all (frames with no step keep it banked).
+            carryMouseYaw += state.flight.mouseYaw;
+            carryMousePitch += state.flight.mousePitch;
+            state.flight.mouseYaw = carryMouseYaw;
+            state.flight.mousePitch = carryMousePitch;
             bool switchTargetOnce = state.switchTarget;
             bool fireMissileOnce = state.fireMissile;
             while (time.consumeStep()) {
@@ -159,6 +186,12 @@ int Game::run() {
                 // Player flight update
                 if (!current.crashed && current.health > 0.0) {
                     controller.update(current, state.flight, Time::fixedDelta, &terrainSystem);
+                    if (carryMouseYaw != 0.0 || carryMousePitch != 0.0) {
+                        state.flight.mouseYaw = 0.0;
+                        state.flight.mousePitch = 0.0;
+                        carryMouseYaw = 0.0;
+                        carryMousePitch = 0.0;
+                    }
 
                     // Player weapon firing
                     if (state.fireGun) {
@@ -245,10 +278,11 @@ int Game::run() {
         camera.update(rendered, dt, &terrainSystem);
         const auto& pose = camera.pose();
 
-        // Optional nose camera (C): sit on the canopy looking down the nose;
-        // the chase pose still drives LOD selection.
+        // Nose camera preset (C cycles chase -> close chase -> nose): sit
+        // on the canopy looking down the nose; the chase pose still
+        // drives LOD selection.
         CameraPose renderPose = pose;
-        if (noseCamera) {
+        if (cameraPreset == 2) {
             renderPose.position = rendered.transform.position + rendered.transform.up() * 1.6 +
                                   rendered.transform.forward() * 8.0;
             renderPose.target = renderPose.position + rendered.transform.forward() * 120.0;
@@ -275,7 +309,7 @@ int Game::run() {
         terrainRenderer.drawClouds(cloudSystem);
 
         // Render player aircraft (hidden in nose-camera view)
-        if (!noseCamera && !rendered.crashed && rendered.health > 0.0) {
+        if (cameraPreset != 2 && !rendered.crashed && rendered.health > 0.0) {
             aircraftRenderer.draw(rendered);
         }
 
@@ -341,10 +375,10 @@ int Game::run() {
                                        missionSystem.status());
         HUD::draw(hudData);
 
-        // Steering reticle + pause overlay
+        // Aim reticle (fixed centre cross; relative mouse has no cursor
+        // position to mark) + pause overlay
         if (!paused) {
-            FlightReticle::draw(640, 360, 640, 360, state.mouseNX, state.mouseNY,
-                                MouseFlightConfig{}.deadzone, false);
+            FlightReticle::draw(640, 360);
         } else {
             DrawString(552, 344, L"PAUSED", GetColor(255, 255, 255));
             DrawString(496, 368, L"Esc: Resume   |   Close window: Quit", GetColor(200, 215, 230));

@@ -11,7 +11,7 @@ CameraPose ChaseCamera::desired(const Aircraft& a) const {
     // Positional turn lag: slight lateral displacement opposite bank during turns
     Vec3 lateralLag = a.transform.right() * (-a.visualBank * 1.8);
     // Aircraft up keeps camera well-defined through vertical flight and full loops.
-    return {a.transform.position - a.transform.forward() * (24.0 + 6.0 * speed) + a.transform.up() * 8.0 + lateralLag,
+    return {a.transform.position - a.transform.forward() * ((24.0 + 6.0 * speed) * followScale_) + a.transform.up() * (8.0 * followScale_) + lateralLag,
             a.transform.position + a.transform.forward() * (18.0 + 20.0 * speed),
             a.transform.up(),
             65.0 + 15.0 * speed};

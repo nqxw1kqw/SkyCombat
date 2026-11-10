@@ -10,7 +10,7 @@ Milestones M1 through M5 are fully implemented. **202 / 202 portable tests are p
 
 | Control | Action | Details |
 | :--- | :--- | :--- |
-| **Mouse move** | Steer (Pitch + Yaw) | Cursor offset from screen centre; radial deadzone 0.08, response curve 1.4, smoothed (see `MouseFlightConfig`) |
+| **Mouse move** | Direct flight (Yaw + Pitch) | Relative Mouse Flight: each frame's mouse movement rotates the aircraft directly; cursor is captured, hidden and re-centred every frame, so a still mouse holds the current heading. Sensitivity, invertY, smoothing and per-frame clamp live in `MouseFlightConfig` |
 | **W / S** | Pitch assist | Adds pitch on top of the mouse command (weight 0.75) |
 | **A / D** | Manual Roll | Roll left / right; overrides auto-bank while held and couples into a gentle turn |
 | **LShift / LCtrl** | Throttle Up / Down | Accelerate / decelerate airspeed ($25\text{--}140\,\text{m/s}$) |
@@ -18,7 +18,7 @@ Milestones M1 through M5 are fully implemented. **202 / 202 portable tests are p
 | **Right Mouse (hold)** | Lock-On | Targeting only acquires while held; release drops the lock |
 | **F** | Launch Missile | Fires homing missile ($220\,\text{m/s}$, $45^\circ/\text{s}$ turn limit); requires target lock |
 | **Tab** | Cycle Target | While holding lock-on, cycles living targets in range |
-| **C** | Switch Camera | Chase camera / nose camera |
+| **C** | Cycle Camera Preset | Chase → close chase → nose (camera never free-looks; it always follows the aircraft) |
 | **R** | Reset / Restart | Respawns player and resets flight controller, camera, and combat mission |
 | **Esc** | Pause / Resume | Pausing returns the mouse cursor; close the window to quit |
 

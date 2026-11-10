@@ -32,6 +32,15 @@ void FlightController::update(Aircraft& a, const FlightInput& input, double dt, 
                                a.transform.orientation *
                                Quat::axisAngle({1, 0, 0}, -pitch * FlightTuning::pitchRate * dt)).normalized();
 
+    // Direct mouse rotation: applied once per step, in the same axes and
+    // sign conventions as the rate commands above. A still mouse adds
+    // exactly nothing, so the aircraft holds its heading.
+    if (input.mouseYaw != 0.0 || input.mousePitch != 0.0) {
+        a.transform.orientation = (Quat::axisAngle({0, 1, 0}, input.mouseYaw) *
+                                   a.transform.orientation *
+                                   Quat::axisAngle({1, 0, 0}, -input.mousePitch)).normalized();
+    }
+
     if (terrain) {
         // 1. Boundary soft turn if nearing edge while heading outward
         constexpr double softLimit = 900.0;
@@ -71,9 +80,12 @@ void FlightController::update(Aircraft& a, const FlightInput& input, double dt, 
     }
 
     // Bank: a held manual roll wins over the turn-induced auto-bank; with
-    // neither input the bank eases back to level on its own.
+    // neither input the bank eases back to level on its own. Mouse yaw
+    // counts towards the auto-bank as its equivalent turn rate this step.
+    const double mouseTurnEq = dt > 0.0 ? std::clamp(input.mouseYaw / (FlightTuning::yawRate * dt), -1.0, 1.0) : 0.0;
+    const double bankTurn = std::clamp(turnEff + mouseTurnEq, -1.0, 1.0);
     const double bankTarget = std::abs(roll) > 0.001 ? roll * FlightTuning::maxBank
-                                                     : -turnEff * FlightTuning::maxBank;
+                                                     : -bankTurn * FlightTuning::maxBank;
     a.visualBank += (bankTarget - a.visualBank) * response(FlightTuning::levelResponse, dt);
     a.transform.position = a.transform.position + a.transform.forward() * (a.speed * dt);
 

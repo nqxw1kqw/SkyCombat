@@ -2,13 +2,12 @@
 
 namespace sky {
 
-// 2D steering reticle for mouse flight: a fixed centre cross, a marker at
-// the raw cursor offset, and (optionally) the deadzone oval. Coordinates
-// are normalised (x right, y up, [-1, 1] from the window centre).
+// Fixed centre aim reticle. Direct Mouse Flight is relative — the cursor
+// is captured and re-centred every frame, so there is no cursor offset to
+// mark; the cross is the aircraft's heading reference.
 class FlightReticle {
 public:
-    static void draw(int centerX, int centerY, int halfWidth, int halfHeight,
-                     double rawNX, double rawNY, double deadzone, bool showDeadzone);
+    static void draw(int centerX, int centerY);
 };
 
 } // namespace sky
