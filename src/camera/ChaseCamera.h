@@ -13,8 +13,9 @@ public:
     void update(const Aircraft& aircraft, double dt, const IHeightProvider* terrain = nullptr);
     const CameraPose& pose() const { return pose_; }
 
-private:
     CameraPose desired(const Aircraft& aircraft) const;
+
+private:
     void applyTerrainAvoidance(const IHeightProvider* terrain);
     CameraPose pose_;
 };
