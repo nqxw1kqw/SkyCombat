@@ -1,11 +1,24 @@
 #pragma once
-#include "world/TerrainSystem.h"
+#include "world/TerrainMesh.h"
+#include "world/TerrainChunk.h"
+#include "world/SkySystem.h"
+#include <vector>
 
 namespace sky {
 
 class TerrainRenderer {
 public:
+    // Configures DXLib distance fog and background state
+    void setupEnvironment(const SkySystem& sky) const;
+
+    // Draws raw terrain mesh data
     void draw(const TerrainMeshData& mesh) const;
+
+    // Draws active LOD meshes from the 16 terrain chunks
+    void drawChunks(const std::vector<TerrainChunk>& chunks) const;
+
+    // Draws distant northern mountain silhouettes
+    void drawDistantMountains(const TerrainMeshData& mountains) const;
 };
 
-}
+} // namespace sky

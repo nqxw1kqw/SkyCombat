@@ -133,6 +133,70 @@ double TerrainSystem::evaluateAnalyticHeight(double x, double z, uint32_t seed) 
     return std::max(h, 2.0); // Safe floor above zero level
 }
 
+void TerrainSystem::buildDistantMountains() {
+    distantMountains_.vertices.clear();
+    distantMountains_.triangles.clear();
+    distantMountains_.indices.clear();
+
+    // Generate distant northern mountain silhouette ridge beyond z = 1000
+    // Simple low-poly proxy ridge with 9 peaks across x in [-1200, 1200]
+    struct Peak { double x, z, y; };
+    const Peak peaks[] = {
+        {-1200.0, 1400.0, 180.0},
+        {-900.0,  1550.0, 270.0},
+        {-600.0,  1450.0, 230.0},
+        {-300.0,  1650.0, 320.0},
+        {   0.0,  1500.0, 280.0},
+        { 300.0,  1700.0, 350.0},
+        { 600.0,  1550.0, 290.0},
+        { 900.0,  1650.0, 260.0},
+        {1200.0,  1400.0, 190.0}
+    };
+    constexpr size_t numPeaks = sizeof(peaks) / sizeof(peaks[0]);
+
+    // Slate-blue atmospheric mountain rock color
+    const Vec3 baseRock{0.50, 0.55, 0.62};
+    const Vec3 lightDir = normalized({0.4, 0.8, 0.3});
+
+    auto packColor = [&](const Vec3& normal) -> uint32_t {
+        double diff = 0.6 + 0.4 * std::max(0.0, dot(normal, lightDir));
+        int r = std::clamp(int(baseRock.x * diff * 255.0 + 0.5), 0, 255);
+        int g = std::clamp(int(baseRock.y * diff * 255.0 + 0.5), 0, 255);
+        int b = std::clamp(int(baseRock.z * diff * 255.0 + 0.5), 0, 255);
+        return (uint32_t(r) << 16) | (uint32_t(g) << 8) | uint32_t(b);
+    };
+
+    // Base vertices along z = 1050 (near boundary) and peak vertices
+    for (size_t i = 0; i < numPeaks - 1; ++i) {
+        Vec3 b0{peaks[i].x, 60.0, 1050.0};
+        Vec3 p0{peaks[i].x, peaks[i].y, peaks[i].z};
+        Vec3 p1{peaks[i + 1].x, peaks[i + 1].y, peaks[i + 1].z};
+        Vec3 b1{peaks[i + 1].x, 60.0, 1050.0};
+
+        uint32_t idx = uint32_t(distantMountains_.vertices.size());
+        distantMountains_.vertices.push_back({b0, {0, 1, 0}, 0});
+        distantMountains_.vertices.push_back({p0, {0, 1, 0}, 0});
+        distantMountains_.vertices.push_back({p1, {0, 1, 0}, 0});
+        distantMountains_.vertices.push_back({b1, {0, 1, 0}, 0});
+
+        // Face 1: (b0, p0, p1)
+        Vec3 n1 = normalized(cross(p0 - b0, p1 - b0));
+        uint32_t col1 = packColor(n1);
+        distantMountains_.triangles.push_back({idx, idx + 1, idx + 2, n1, col1});
+        distantMountains_.indices.push_back(idx);
+        distantMountains_.indices.push_back(idx + 1);
+        distantMountains_.indices.push_back(idx + 2);
+
+        // Face 2: (b0, p1, b1)
+        Vec3 n2 = normalized(cross(p1 - b0, b1 - b0));
+        uint32_t col2 = packColor(n2);
+        distantMountains_.triangles.push_back({idx, idx + 2, idx + 3, n2, col2});
+        distantMountains_.indices.push_back(idx);
+        distantMountains_.indices.push_back(idx + 2);
+        distantMountains_.indices.push_back(idx + 3);
+    }
+}
+
 void TerrainSystem::initialize() {
     heights_.resize(WorldConfig::numVertsX * WorldConfig::numVertsZ);
     mesh_.vertices.clear();
@@ -154,41 +218,9 @@ void TerrainSystem::initialize() {
         }
     }
 
-    // Generate triangles for each cell
+    // Generate base mesh triangles using BiomeSystem colors
     mesh_.triangles.reserve(WorldConfig::numCellsX * WorldConfig::numCellsZ * 2);
     mesh_.indices.reserve(WorldConfig::numCellsX * WorldConfig::numCellsZ * 6);
-
-    const Vec3 lightDir = normalized({0.4, 0.8, 0.3});
-
-    auto computeColor = [&](double elev, const Vec3& normal) -> uint32_t {
-        // Base palette: grassland green -> upland olive -> mountain gray -> peak rock
-        int r = 80, g = 140, b = 75;
-        if (elev < 30.0) {
-            r = 75; g = 138; b = 70;
-        } else if (elev < 80.0) {
-            double t = (elev - 30.0) / 50.0;
-            r = int(75 + t * (115 - 75));
-            g = int(138 + t * (148 - 138));
-            b = int(70 + t * (85 - 70));
-        } else if (elev < 140.0) {
-            double t = (elev - 80.0) / 60.0;
-            r = int(115 + t * (140 - 115));
-            g = int(148 + t * (142 - 148));
-            b = int(85 + t * (135 - 85));
-        } else {
-            double t = std::min(1.0, (elev - 140.0) / 60.0);
-            r = int(140 + t * (195 - 140));
-            g = int(142 + t * (200 - 142));
-            b = int(135 + t * (205 - 135));
-        }
-
-        double diff = 0.55 + 0.45 * std::max(0.0, dot(normal, lightDir));
-        r = std::clamp(int(r * diff), 0, 255);
-        g = std::clamp(int(g * diff), 0, 255);
-        b = std::clamp(int(b * diff), 0, 255);
-        // Pack as 0x00RRGGBB (DXLib GetColor / unsigned int format)
-        return (uint32_t(r) << 16) | (uint32_t(g) << 8) | uint32_t(b);
-    };
 
     for (int iz = 0; iz < WorldConfig::numCellsZ; ++iz) {
         for (int ix = 0; ix < WorldConfig::numCellsX; ++ix) {
@@ -203,8 +235,8 @@ void TerrainSystem::initialize() {
                 Vec3 p1 = mesh_.vertices[v10].position;
                 Vec3 p2 = mesh_.vertices[v11].position;
                 Vec3 n = normalized(cross(p1 - p0, p2 - p0));
-                double avgY = (p0.y + p1.y + p2.y) / 3.0;
-                uint32_t col = computeColor(avgY, n);
+                Vec3 center = (p0 + p1 + p2) * (1.0 / 3.0);
+                uint32_t col = biomes_.evaluatePackedColor(center.x, center.z, center.y, n);
 
                 mesh_.triangles.push_back({v00, v10, v11, n, col});
                 mesh_.indices.push_back(v00);
@@ -218,8 +250,8 @@ void TerrainSystem::initialize() {
                 Vec3 p1 = mesh_.vertices[v11].position;
                 Vec3 p2 = mesh_.vertices[v01].position;
                 Vec3 n = normalized(cross(p1 - p0, p2 - p0));
-                double avgY = (p0.y + p1.y + p2.y) / 3.0;
-                uint32_t col = computeColor(avgY, n);
+                Vec3 center = (p0 + p1 + p2) * (1.0 / 3.0);
+                uint32_t col = biomes_.evaluatePackedColor(center.x, center.z, center.y, n);
 
                 mesh_.triangles.push_back({v00, v11, v01, n, col});
                 mesh_.indices.push_back(v00);
@@ -228,6 +260,24 @@ void TerrainSystem::initialize() {
             }
         }
     }
+
+    // Build 16 terrain chunks (4x4, 500m x 500m each) with 3 LOD levels each
+    chunks_.clear();
+    chunks_.reserve(16);
+    for (int cz = 0; cz < 4; ++cz) {
+        double minZ = WorldConfig::minZ + cz * TerrainChunk::chunkSize;
+        for (int cx = 0; cx < 4; ++cx) {
+            double minX = WorldConfig::minX + cx * TerrainChunk::chunkSize;
+            chunks_.emplace_back(cx, cz, minX, minZ);
+        }
+    }
+
+    for (auto& chunk : chunks_) {
+        chunk.buildMeshes(*this, biomes_, seed_);
+    }
+
+    // Build distant mountain silhouettes
+    buildDistantMountains();
 
     initialized_ = true;
 }
@@ -267,6 +317,26 @@ double TerrainSystem::groundHeight(double x, double z) const {
     } else {
         return h00 + fx * (h11 - h01) + fz * (h01 - h00);
     }
+}
+
+void TerrainSystem::updateLODs(const Vec3& cameraPosition) {
+    for (auto& chunk : chunks_) {
+        double d = chunk.distanceTo(cameraPosition);
+        chunk.updateLOD(d);
+    }
+}
+
+const TerrainChunk* TerrainSystem::findChunk(double x, double z) const {
+    if (x < WorldConfig::minX || x > WorldConfig::maxX ||
+        z < WorldConfig::minZ || z > WorldConfig::maxZ) {
+        return nullptr;
+    }
+    int cx = int((x - WorldConfig::minX) / TerrainChunk::chunkSize);
+    int cz = int((z - WorldConfig::minZ) / TerrainChunk::chunkSize);
+    cx = std::clamp(cx, 0, 3);
+    cz = std::clamp(cz, 0, 3);
+    size_t idx = size_t(cz * 4 + cx);
+    return idx < chunks_.size() ? &chunks_[idx] : nullptr;
 }
 
 } // namespace sky
