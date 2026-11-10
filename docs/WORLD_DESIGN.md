@@ -193,3 +193,45 @@ Along any shared chunk boundary (e.g. $X = 0\,\text{m}$ between chunk $(1, cz)$ 
 ## 10. Distant Mountain Silhouettes (M3)
 
 Beyond the northern boundary ($Z \in [1050, 1700]\,\text{m}$), a low-poly proxy ridge of 8 distinct mountain peaks ($Y \approx 180\text{--}350\,\text{m}$) is generated as lightweight pure mesh data (~30 triangles). Colored in atmospheric slate blue (`#808c9e`), these silhouettes rise above the horizon and fade gracefully into the distance fog without requiring complex terrain streaming.
+
+---
+
+## 11. Environment Art: Batched Vegetation & Cloud Clusters (M4)
+
+### 11.1 Deterministic Vegetation System (`VegetationSystem`)
+Vegetation is deterministically scattered using a fixed seed (`seed = 1337`) and merged into static vertex/index buffers grouped by category to eliminate individual draw calls:
+
+1. **Grass Clumps (`grassBatch`):**
+   - Distributed across Grassland and Highland biomes.
+   - Density cap: up to $1,200$ clumps (`WorldConfig::maxGrassClumps`).
+   - Geometry: crossed double-quad mesh (8 vertices, 4 triangles, 2 quads along X and Z).
+   - Colors: dark forest base (`#3e6b22`), vivid spring green tips (`#82c35f`).
+
+2. **Purple Flower Tufts (`purpleFlowersBatch`):**
+   - Strictly confined to the Western purple flower field ($X < 0\,\text{m}$, predominant biome `PurpleFlowerField`, weight $> 0.30$).
+   - Density cap: up to $400$ tufts (`WorldConfig::maxPurpleFlowerTufts`).
+   - Colors: fresh foliage base (`#478028`), soft lavender petals (`#bc94e2`).
+
+3. **Pink Flower Tufts (`pinkFlowersBatch`):**
+   - Strictly confined to the Eastern pink flower field ($X > 0\,\text{m}$, predominant biome `PinkFlowerField`, weight $> 0.30$).
+   - Density cap: up to $400$ tufts (`WorldConfig::maxPinkFlowerTufts`).
+   - Colors: fresh foliage base (`#478028`), rose blossom petals (`#edb5c9`).
+
+4. **Strict Terrain Exclusions:**
+   - **Steep slopes:** Excluded wherever surface normal $N_y < 0.85$ (no foliage clinging to cliffs).
+   - **Rock & high altitude:** Excluded where $Y > 85\,\text{m}$ or mountain rock weight $> 0.05$.
+   - **Valley floor path:** Excluded from the canyon bed where valley mask $> 0.05$ or valley floor weight $> 0.05$.
+   - **Surface attachment:** Clump bases snap exactly to $Y = \text{GroundHeight}(X, Z)$.
+
+### 11.2 Deterministic Low-Poly Cloud System (`CloudSystem`)
+Atmospheric cloud blobs populate the sky above the playable airspace:
+
+1. **Cluster Architecture:**
+   - 18 cloud clusters (`WorldConfig::numCloudClusters`) generated deterministically (`seed = 1337`).
+   - Altitude band: strictly within $[230, 360]\,\text{m}$ (`cloudMinAltitude` to `cloudMaxAltitude`).
+   - Geometry: cluster of flattened overlapping low-poly boxes with shaded slate undersides (`#c4d2e2`), soft rims (`#e2ebf5`), and puffy white upper facets (`#f8fbff`).
+
+2. **Drift & Seamless Wrap:**
+   - Clusters drift slowly eastward along $+X$ at $2.5\,\text{m/s}$ (`cloudDriftSpeed`).
+   - Seamless wrapping: upon crossing $X = +1200\,\text{m}$, clusters wrap to $-1200\,\text{m}$.
+   - **Zero per-frame allocation:** Cloud vertex positions are adjusted in-place during `update(dt)` using precomputed cluster vertex index spans; no buffers are reallocated or cleared at runtime.

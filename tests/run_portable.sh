@@ -14,9 +14,14 @@ sources=(
     src/world/BiomeSystem.cpp
     src/world/SkySystem.cpp
     src/world/TerrainChunk.cpp
+    src/world/VegetationSystem.cpp
+    src/world/CloudSystem.cpp
+    src/effects/SpeedEffects.cpp
+    src/audio/AudioModel.cpp
+    src/ui/HUD.cpp
 )
-for suite in MathTests FlightTests TerrainTests WorldRenderTests; do
-    g++ -std=c++20 -Wall -Wextra -Wpedantic -Werror -O2 -Isrc "tests/$suite.cpp" "${sources[@]}" -o "$build_dir/$suite"
+for suite in MathTests FlightTests TerrainTests WorldRenderTests PolishTests; do
+    g++ -std=c++20 -DSKY_PORTABLE -Wall -Wextra -Wpedantic -Werror -O2 -Isrc "tests/$suite.cpp" "${sources[@]}" -o "$build_dir/$suite"
     printf '%s: ' "$suite"
     "$build_dir/$suite"
 done

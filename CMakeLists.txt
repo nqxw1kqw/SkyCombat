@@ -19,6 +19,9 @@ add_executable(SkyCombat WIN32
     src/world/TerrainSystem.cpp src/world/WorldCollision.cpp
     src/world/BiomeSystem.cpp src/world/SkySystem.cpp
     src/world/TerrainChunk.cpp
+    src/world/VegetationSystem.cpp src/world/CloudSystem.cpp
+    src/effects/SpeedEffects.cpp src/audio/AudioModel.cpp
+    src/ui/HUD.cpp
     src/rendering/TerrainRenderer.cpp)
 target_compile_features(SkyCombat PRIVATE cxx_std_20)
 set_target_properties(SkyCombat PROPERTIES CXX_EXTENSIONS OFF
