@@ -1,9 +1,9 @@
-# SkyCombat — M1 Flight Prototype
+# SkyCombat — M2 Terrain + Terrain-aware Flight
 
-C++20 / DXLib, Windows x64. M1 implements assisted arcade flight, a code-built
-low-poly aircraft, a reference ground grid, and a smooth chase camera. No terrain,
-collision, world bounds, weapons or AI are implemented. The grid at Y=0 is only an
-altitude reference: flying through it is possible in this milestone.
+C++20 / DXLib, Windows x64. M2 implements the procedural 2 km × 2 km heightfield,
+triangle-consistent collision surface, low-poly terrain mesh generation and rendering,
+terrain-aware flight assist and collision states, world boundary handling, and chase
+camera ground avoidance.
 
 **Windows/DXLib build and interactive behavior are unverified.** Development and
 portable tests ran on Linux without Windows or the DXLib SDK. Official DXLib
@@ -27,8 +27,8 @@ and relies on the official MSVC header's autolink pragmas to select Debug/Releas
 libraries and codec dependencies. Keep all supplied libraries together. The target
 uses static MSVC runtime (/MTd in Debug, /MT in Release); confirm that the installed
 SDK variants match. SDK packaging and dependencies must be verified on Windows;
-these commands are not a guarantee for every SDK release. M1 loads no external
-assets and requires no asset copy or runtime model loader.
+these commands are not a guarantee for every SDK release. M2 uses code-generated
+analytic terrain and aircraft triangle meshes with no external model or texture dependencies.
 
 Run portable tests on Linux:
 
@@ -37,29 +37,57 @@ Run portable tests on Linux:
 ```
 
 The script builds only pure logic with `g++ -std=c++20`, warnings as errors, in a
-temporary directory. MathTests: **8 passed, 0 failed**. FlightTests: **24 passed,
-0 failed**. Tests cover rotation axes, quaternion interpolation, long rotations,
-input mapping, fixed-step timing at 30/60/144 FPS, speed bounds, bank decay, reset,
-and camera smoothing/FOV/loops. Simulated cadence tests do not verify interactive
-Windows rendering or input/focus behavior.
+temporary directory. Total test count: **63 passed, 0 failed**.
+- MathTests: **8 passed, 0 failed**.
+- FlightTests: **24 passed, 0 failed**.
+- TerrainTests: **31 passed, 0 failed**.
 
-Controls: W/S pitch up/down; A/D turn left/right with assisted banking;
-Shift/Ctrl increase/decrease speed; R reset; Esc quit. Opposing controls cancel.
-Throttle release holds speed. Shift's boost flag is mapped for future use; M1
-uses its throttle axis and the same 140 m/s maximum. Debug overlay shows m/s,
-altitude in metres, FPS, and bank assist status.
+Tests verify rotation axes, quaternion interpolation, long rotations, input mapping,
+fixed-step timing at 30/60/144 FPS, speed bounds, bank decay, reset, camera smoothing/FOV/loops,
+heightfield determinism, GroundHeight consistency against the generated mesh across
+hundreds of sample points, world bounds behaviour, clearance/collision cases, and
+terrain assist trigger ranges.
 
-The window is 1280×720 with back-buffer rendering. Message polling continues
-while inactive and inactive keyboard state is cleared. Simulation runs at 60 Hz,
-frame delta is capped at 0.25 s, and transforms interpolate for rendering. R snaps
-both interpolation endpoints and camera to spawn. See
-[architecture](docs/ARCHITECTURE.md) and [flight tuning](docs/FLIGHT_TUNING.md).
+## Terrain & GroundHeight Architecture
 
-Windows acceptance still to verify: Debug build/link, window size, Esc, focus
-loss/recovery, controls and reset, nose/turn/bank directions, camera stability,
-and visual behavior at 30/60/144 FPS. No Windows build or gameplay run is claimed.
+Terrain elevation follows the spec section 6 procedural heightfield formula:
 
-Roadmap: next is **M2**, procedural terrain with shared height queries, collision,
-clearance assistance, world bounds and basic camera obstruction. The supplied
-`assets/models/fighter_jet.obj` remains parked for a later milestone; M1 deliberately
-uses its own triangle mesh. World art/palette, combat and AI remain later work.
+$$H(x, z) = \mathrm{Hills}(x, z) + \mathrm{MountainMask}(x, z) \cdot \mathrm{Mountains}(x, z) + \mathrm{Detail}(x, z) - \mathrm{ValleyMask}(x, z) \cdot \mathrm{ValleyDepth}(x, z)$$
+
+with a fixed seed (`1337`) producing deterministic heights across platforms:
+- **Center (0, 0):** Flat grassland airfield; spawn at $(0, 120, 0)$ provides $>100\,\text{m}$ clearance.
+- **North ($+Z > 100\,\text{m}$):** High mountains and elevated ridges rising to $150\text{--}200\,\text{m}$.
+- **South ($-Z < -50\,\text{m}$):** Winding canyon corridor following $x(z) = 180\sin(0.006z) + 70\cos(0.014z)$, carved $20\text{--}30\,\text{m}$ deep.
+- **East & West:** Rolling meadows.
+
+`IHeightProvider::groundHeight(x, z)` uses **triangle-consistent plane interpolation**
+matching the exact triangulation of the rendered low-poly mesh (12,800 triangles).
+Each grid cell quad is split into two triangles along the $(0,0) \to (1,1)$ diagonal.
+Collision queries evaluate the exact plane of the triangle covering $(x, z)$, guaranteeing
+zero discrepancy between the visible mesh surface and collision queries.
+
+## Terrain-Aware Flight Rules
+
+1. **Clearance $> 25\,\text{m}$:** Normal assisted arcade flight without intervention.
+2. **Clearance $8\text{--}25\,\text{m}$ while descending:** A limited pitch-up assist
+   proportional to descent rate and clearance is applied. Does not force automatic
+   terrain following or override pilot authority.
+3. **Clearance $< 8\,\text{m}$:** Low clearance warning state active (`terrainWarning = true`).
+4. **Ground collision ($\text{clearance} \le 0$):** Aircraft enters crash state (`crashed = true`),
+   speed is zeroed, and altitude is clamped to `groundHeight` (the aircraft can never sink below the mesh).
+   Pressing `R` restores flight to the spawn point.
+5. **World boundaries:** Soft-turn guidance steers the aircraft back toward center within $100\,\text{m}$
+   of borders ($|x|, |z| > 900\,\text{m}$). Hard clamping keeps the aircraft within the 2 km × 2 km boundary.
+6. **Chase camera avoidance:** Camera altitude is clamped to at least $\text{groundHeight} + 2.5\,\text{m}$.
+
+See [world design](docs/WORLD_DESIGN.md), [architecture](docs/ARCHITECTURE.md), and [flight tuning](docs/FLIGHT_TUNING.md).
+
+Controls: W/S pitch up/down; A/D turn left/right with assisted banking; Shift/Ctrl
+increase/decrease speed; R reset / respawn; Esc quit.
+
+Windows acceptance still to verify: Debug build/link against installed DXLib SDK,
+window size, Esc, focus loss/recovery, controls and reset, nose/turn/bank directions,
+camera stability and terrain avoidance, and visual 60 FPS behavior.
+
+Roadmap: next is **M3**, World Rendering (sky dome / gradient, directional lighting, distance fog,
+biome palette refinement, and chunking/LOD preparation).

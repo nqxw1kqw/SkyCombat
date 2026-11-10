@@ -15,7 +15,9 @@ get_filename_component(DXLIB_LIBRARY_DIR "${DXLIB_LIBRARY}" DIRECTORY)
 add_executable(SkyCombat WIN32
     src/main.cpp src/core/Game.cpp src/core/Input.cpp src/core/Time.cpp
     src/aircraft/Aircraft.cpp src/aircraft/FlightController.cpp
-    src/camera/ChaseCamera.cpp src/rendering/AircraftRenderer.cpp)
+    src/camera/ChaseCamera.cpp src/rendering/AircraftRenderer.cpp
+    src/world/TerrainSystem.cpp src/world/WorldCollision.cpp
+    src/rendering/TerrainRenderer.cpp)
 target_compile_features(SkyCombat PRIVATE cxx_std_20)
 set_target_properties(SkyCombat PROPERTIES CXX_EXTENSIONS OFF
     MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")
