@@ -1,4 +1,6 @@
 #include "TerrainRenderer.h"
+#include "world/VegetationSystem.h"
+#include "world/CloudSystem.h"
 #include <DxLib.h>
 #include <algorithm>
 
@@ -38,6 +40,16 @@ void TerrainRenderer::drawChunks(const std::vector<TerrainChunk>& chunks) const 
 
 void TerrainRenderer::drawDistantMountains(const TerrainMeshData& mountains) const {
     draw(mountains);
+}
+
+void TerrainRenderer::drawVegetation(const VegetationSystem& vegetation) const {
+    draw(vegetation.grassBatch());
+    draw(vegetation.purpleFlowersBatch());
+    draw(vegetation.pinkFlowersBatch());
+}
+
+void TerrainRenderer::drawClouds(const CloudSystem& clouds) const {
+    draw(clouds.mesh());
 }
 
 } // namespace sky

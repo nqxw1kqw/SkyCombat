@@ -6,6 +6,9 @@
 
 namespace sky {
 
+class VegetationSystem;
+class CloudSystem;
+
 class TerrainRenderer {
 public:
     // Configures DXLib distance fog and background state
@@ -19,6 +22,12 @@ public:
 
     // Draws distant northern mountain silhouettes
     void drawDistantMountains(const TerrainMeshData& mountains) const;
+
+    // Draws batched vegetation geometry
+    void drawVegetation(const VegetationSystem& vegetation) const;
+
+    // Draws low-poly cloud clusters mesh
+    void drawClouds(const CloudSystem& clouds) const;
 };
 
 } // namespace sky

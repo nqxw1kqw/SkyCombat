@@ -24,5 +24,19 @@ struct WorldConfig {
     static constexpr double cameraGroundMargin = 2.5;
 
     static constexpr Vec3 spawnPosition{0.0, 120.0, 0.0};
+
+    // M4 Environment & Polish parameters
+    static constexpr int maxGrassClumps = 1200;
+    static constexpr int maxPurpleFlowerTufts = 400;
+    static constexpr int maxPinkFlowerTufts = 400;
+
+    static constexpr int numCloudClusters = 18;
+    static constexpr double cloudMinAltitude = 230.0;
+    static constexpr double cloudMaxAltitude = 360.0;
+    static constexpr double cloudDriftSpeed = 2.5; // m/s
+
+    static constexpr double speedLineThreshold = 105.0; // m/s
+    static constexpr double cameraRollFraction = 0.20;
+    static constexpr double cameraMaxRoll = radians(12.0);
 };
 }
