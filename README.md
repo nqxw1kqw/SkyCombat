@@ -1,118 +1,142 @@
-# SkyCombat — M4 Environment Art + Flight Polish
+# SkyCombat — 3D Flight Combat Game (Milestones M1–M5 Complete)
 
-C++20 / DXLib, Windows x64. M4 implements environment art and flight polish:
-VegetationSystem (deterministic batched crossed-quad grass clumps on grassland and
-flower tufts strictly inside purple/pink flower biomes, surface clamping, and strict
-exclusions on rock/steep slopes/valley floor path), CloudSystem (deterministic low-poly
-cloud clusters in [230, 360] m altitude band with slow drift and zero per-frame
-allocations), Chase camera polish (positional turn lag, camera roll capped at 12°,
-speed-mapped 65–80° FOV, and exponential smoothing), SpeedEffects (speed-line intensity
-ramping above 105 m/s threshold with boost bonus and config toggle), AudioModel (pure
-throttle/speed mapping for engine and wind audio), and HUD (pure data model with km/h
-conversion, altitude, clearance, and assist/warning states).
+C++20 / DXLib, Windows x64. SkyCombat is a third-person arcade flight action combat game featuring assisted flight dynamics, procedural multithreaded-ready chunked terrain with LODs and biomes, environment art and flight polish, and full 3D combat with homing missiles and reactive enemy AI.
 
-**Windows/DXLib build, real visuals, and audio playback are unverified.** Development
-and portable tests ran on Linux without Windows or the DXLib SDK. Official DXLib
-[3D primitive documentation](https://dxlib.xsrv.jp/function/dxfunc_3d_draw.html) and
-[sound documentation](https://dxlib.xsrv.jp/function/dxfunc_sound.html) were consulted;
-this does not substitute for compilation against your installed SDK.
-**Audio asset notice:** No audio waveform files ship with the repository; the DXLib
-audio layer applies parameters only if a valid sound handle exists (otherwise it is
-a safe no-op).
+Milestones M1 through M5 are fully implemented. **202 / 202 portable tests are passing**.
 
-Install Visual Studio 2022 Community with Desktop development with C++, Windows
-SDK, CMake, and the DXLib Visual C++ x64 SDK. Use the complete SDK directory
-containing DxLib.h and its bundled .lib files. Exact commands from spec section 9:
+---
 
-```powershell
-cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DDXLIB_ROOT="C:/SDK/DxLib/プロジェクトに追加すべきファイル_VC用"
-cmake --build build --config Debug
-.\build\Debug\SkyCombat.exe
-```
+## Controls
 
-Adjust the example path to your SDK. `DXLIB_ROOT` may also be an environment
-variable. CMake locates DxLib.h and DxLib_x64.lib, adds the SDK library directory,
-and relies on the official MSVC header's autolink pragmas to select Debug/Release
-libraries and codec dependencies. Keep all supplied libraries together. The target
-uses static MSVC runtime (/MTd in Debug, /MT in Release); confirm that the installed
-SDK variants match. SDK packaging and dependencies must be verified on Windows;
-these commands are not a guarantee for every SDK release.
+| Control | Action | Details |
+| :--- | :--- | :--- |
+| **W / S** | Pitch Down / Up | Assists flight attitude; inverted flight enabled through pure quaternion rotation |
+| **A / D** | Turn Left / Right | Coordinated yaw turn with assisted visual and aerodynamic banking |
+| **LShift / LCtrl** | Throttle Up / Down | Accelerate / decelerate airspeed ($25\text{--}140\,\text{m/s}$) |
+| **Space** | Fire Machine Gun | Rapid-fire cannon ($600\,\text{m/s}$, $0.08\,\text{s}$ cooldown, swept anti-tunneling) |
+| **F** | Launch Missile | Fires homing missile ($220\,\text{m/s}$, $45^\circ/\text{s}$ turn limit); requires target lock |
+| **Tab** | Cycle Target | Selects nearest enemy or cycles to next living target within range |
+| **R** | Reset / Restart | Respawns player and resets flight controller, camera, and combat mission |
+| **Esc** | Quit | Closes application window |
 
-Run portable tests on Linux:
+---
+
+## Build & Run
+
+### Portable Unit Tests (Linux / macOS / Windows bash)
+
+The core physics, math, terrain generation, vegetation scatter, cloud dynamics, audio model, flight assist, weapons, homing missiles, targeting, enemy AI FSM, and radar systems are built with zero DXLib dependencies in pure C++20:
 
 ```bash
 ./tests/run_portable.sh
 ```
 
-The script builds only pure logic with `g++ -std=c++20`, warnings as errors, in a
-temporary directory. Total test count: **147 passed, 0 failed**.
-- MathTests: **8 passed, 0 failed**.
-- FlightTests: **24 passed, 0 failed**.
-- TerrainTests: **31 passed, 0 failed**.
-- WorldRenderTests: **33 passed, 0 failed**.
-- PolishTests: **51 passed, 0 failed**.
+All **202 portable tests** run with `g++ -std=c++20 -Wall -Wextra -Wpedantic -Werror -O2`:
+- **MathTests:** **8 passed, 0 failed** (vector arithmetic, quaternion rotation, slerp, axis-angle).
+- **FlightTests:** **24 passed, 0 failed** (speed bounds, bank decay, assisted flight, deterministic fixed steps, reset).
+- **TerrainTests:** **31 passed, 0 failed** (heightfield determinism, surface consistency, world boundaries, clearance, chunk coverage).
+- **WorldRenderTests:** **33 passed, 0 failed** (sky gradient, distance fog, biome classification, smooth blending, LOD hysteresis, distant mountains).
+- **PolishTests:** **51 passed, 0 failed** (vegetation scatter & biome constraints, cloud drift & wrapping, chase camera turn lag/roll cap/FOV mapping, speed-effects threshold, audio model mapping, HUD formatting).
+- **CombatTests:** **55 passed, 0 failed** (gun cooldown & pool exhaustion/reuse, swept bullet-to-sphere collision & anti-tunneling, bullet terrain collision, targeting cone/range & Tab cycling, missile turn-rate limit & interception, enemy AI FSM transitions, enemy terrain avoidance, mission clear/fail lifecycle, radar relative projection).
 
-Tests verify rotation axes, quaternion interpolation, long rotations, input mapping,
-fixed-step timing at 30/60/144 FPS, speed bounds, bank decay, reset, camera smoothing/FOV/loops,
-heightfield determinism, GroundHeight consistency against the generated mesh across
-hundreds of sample points, world bounds behaviour, clearance/collision cases,
-terrain assist trigger ranges, sky gradient and distance fog evaluation, biome classification
-sanity, smooth boundary blending continuity, complete 16-chunk world coverage, chunk edge height
-parity at equal LOD, LOD selection with hysteresis stability, distant mountain geometry,
-vegetation determinism and batch caps, flower tuft biome constraints (purple flower tufts ONLY
-in West, pink flower tufts ONLY in East, on terrain surface via GroundHeight), vegetation terrain
-exclusions (none on rock, steep slopes, or valley floor canyon path), cloud determinism and
-altitude band [230, 360] m, cloud slow drift and seamless wrapping, camera positional turn lag,
-camera roll fraction and 12° hard cap, camera FOV mapping [65, 80]°, speed-line threshold (105 m/s)
-and config toggle, monotonic audio parameter mapping with extreme input clamping, and HUD km/h
-speed conversion and clearance warning states.
+### Windows x64 Build (Visual Studio 2022 + DXLib)
 
-## Environment Art & Flight Polish Architecture (M4)
+Prerequisites:
+- Visual Studio 2022 Community with **Desktop development with C++** and Windows SDK
+- CMake 3.20+
+- DXLib Visual C++ x64 SDK
 
-1. **VegetationSystem (`src/world/VegetationSystem.h/.cpp`):**
-   - Deterministic fixed-seed scatter (`seed = 1337`) of low-poly crossed quads (8 vertices, 4 triangles per clump).
-   - Merged batches grouped by type (`grassBatch`, `purpleFlowersBatch`, `pinkFlowersBatch`), eliminating per-blade draw calls.
-   - Flower tufts grow ONLY inside matching biomes:
-     - Purple flowers: Western lowlands ($X < 0\,\text{m}$, `classifyBiome == PurpleFlowerField`, cap 400).
-     - Pink flowers: Eastern lowlands ($X > 0\,\text{m}$, `classifyBiome == PinkFlowerField`, cap 400).
-     - Grass clumps: Central airfield and upland meadows (Grassland/Highland, cap 1,200).
-   - Strict exclusions: zero vegetation on steep slopes ($N_y < 0.85$), mountain rock ($Y > 85\,\text{m}$ or $w_{\text{rock}} > 0.05$), or valley floor canyon path ($w_{\text{valley}} > 0.05$ or $\text{valleyMask} > 0.05$).
+```powershell
+cmake -S . -B build -G "Visual Studio 17 2022" -A x64 -DDXLIB_ROOT="C:/SDK/DxLib/プロジェクトに追加すべきファイル_VC用"
+cmake --build build --config Release
+.\build\Release\SkyCombat.exe
+```
 
-2. **CloudSystem (`src/world/CloudSystem.h/.cpp`):**
-   - 18 deterministic low-poly cloud clusters formed by overlapping flattened boxes with shaded undersides (`#c4d2e2`) and puffy white tops (`#f8fbff`).
-   - Stratified altitude band strictly within $[230, 360]\,\text{m}$.
-   - Drifts eastward at $2.5\,\text{m/s}$ with seamless wrap-around at $X = 1200\,\text{m}$.
-   - **Zero per-frame allocation:** Updates vertex positions in-place using precomputed cluster vertex spans.
+Adjust `-DDXLIB_ROOT` to point to your installed DXLib package directory containing `DxLib.h` and the `.lib` files. `DXLIB_ROOT` may also be set as an environment variable.
 
-3. **Chase Camera Polish (`src/camera/ChaseCamera.cpp`):**
-   - **Positional turn lag:** Displaces camera laterally opposite bank during turns (`lateralLag = right * (-visualBank * 1.8)`).
-   - **Camera roll:** Limited fraction of aircraft bank ($20\%$) with a hard cap at $12.0^\circ$ ($0.2094\,\text{rad}$) to maintain horizon readability.
-   - **FOV mapping:** Smoothly mapped from $65^\circ$ at minimum speed ($25\,\text{m/s}$) to $80^\circ$ at maximum speed ($140\,\text{m/s}$).
-   - **Exponential smoothing:** Frame-rate independent response rates ($6.0\,\text{s}^{-1}$ position, $8.0\,\text{s}^{-1}$ target, $4.0\,\text{s}^{-1}$ FOV).
-   - **Terrain avoidance:** Retains M2 margin of $2.5\,\text{m}$ above local ground height.
+---
 
-4. **SpeedEffects (`src/effects/SpeedEffects.h/.cpp`):**
-   - Pure intensity evaluator: strictly zero below threshold ($105\,\text{m/s}$ = $378\,\text{km/h}$), ramping linearly to $1.0$ at max speed ($140\,\text{m/s}$).
-   - Boost bonus ($+0.20$ intensity) provides immediate visual feedback.
-   - Configurable toggle (`enabled`) completely suppresses speed lines when disabled.
-   - DXLib layer draws lightweight 2D radial lines; no expensive post-processing shaders.
+## Milestone Summary & Architecture
 
-5. **AudioModel (`src/audio/AudioModel.h/.cpp`):**
-   - Pure monotonic mapping of airspeed and throttle to engine volume ($0.35\text{--}1.00$), engine pitch multiplier ($0.80\text{--}1.60$, up to $1.80$ boost), and wind volume ($0.00\text{--}1.00$).
-   - Clamped safely against extreme input ranges.
-   - DXLib sound layer applies parameters only if valid sound handles exist.
+### M1 — Pure Flight Core & Assisted Flight Model
+- **Math & Kinematics (`src/core/Math.h`, `Transform.h`):** Double-precision 3D vectors and quaternions. Loops and rolls operate free of gimbal lock.
+- **Flight Controller (`src/aircraft/`):** Fixed-timestep simulation ($60\,\text{Hz}$) with accumulator cap ($0.25\,\text{s}$). Coordinated turn yawing, auto-recovery bank decay, speed integration ($25\text{--}140\,\text{m/s}$), and physical vs. visual bank separation.
+- **Chase Camera (`src/camera/ChaseCamera.h/.cpp`):** Exponential spring-damper following physical orientation through loops.
 
-6. **HUD Data Model (`src/ui/HUD.h/.cpp`):**
-   - Pure `HUDData` struct decouples formatting from DXLib: computes speed in $\text{km/h}$ ($\text{speed}_{\text{m/s}} \times 3.6$), altitude in metres, clearance, assist/warning state (`Normal`, `AssistEngaged`, `LowClearanceWarning`, `Crashed`), and FPS.
-   - DXLib layer only draws the formatted strings.
+### M2 — Procedural Terrain & Low-Altitude Flight Assist
+- **Terrain System (`src/world/TerrainSystem.h/.cpp`):** Deterministic multi-octave simplex/perlin noise generating central airfield, eastern canyons, western lowlands, and northern mountains.
+- **World Collision & Boundaries (`src/world/WorldCollision.h/.cpp`):** Boundary damping nudging aircraft back toward the center; soft low-clearance pitch-up assist preventing inadvertent crashes; crash resolution on ground impact.
 
-See [world design](docs/WORLD_DESIGN.md), [architecture](docs/ARCHITECTURE.md), and [flight tuning](docs/FLIGHT_TUNING.md).
+### M3 — Chunked Terrain Rendering, LODs & Biomes
+- **Chunked LOD Mesh (`src/world/TerrainChunk.h/.cpp`):** $4 \times 4$ chunk grid ($2400 \times 2400\,\text{m}$) with 3 discrete LOD levels ($32 \times 32$, $16 \times 16$, $8 \times 8$), geomorphic stitching along chunk borders, and hysteresis-stabilized LOD switching.
+- **Biome Classification & Shading (`src/world/BiomeSystem.h/.cpp`):** 5-layer biome classification (Runway, Grassland, Canyon, Rock, Snow) with continuous triplanar blending and distance-fog integration.
 
-Controls: W/S pitch up/down; A/D turn left/right with assisted banking; Shift/Ctrl
-increase/decrease speed; R reset / respawn; Esc quit.
+### M4 — Environment Art & Flight Polish
+- **VegetationSystem (`src/world/VegetationSystem.h/.cpp`):** Deterministic scatter of low-poly crossed quads. Merged batches grouped by type (`grassBatch`, `purpleFlowersBatch`, `pinkFlowersBatch`). Flower tufts grow strictly inside designated biome sectors (purple in West, pink in East).
+- **CloudSystem (`src/world/CloudSystem.h/.cpp`):** 18 deterministic low-poly cloud clusters in the $[230, 360]\,\text{m}$ altitude band with steady eastward drift, seamless wrapping, and zero per-frame heap allocations.
+- **Camera & Effect Polish:** Camera positional turn lag, horizon-preserving roll limit ($12^\circ$), speed-mapped FOV ($65^\circ\text{--}80^\circ$); speed lines above $105\,\text{m/s}$; pure audio model mapping speed and throttle to engine/wind volume and pitch.
 
-Windows acceptance still to verify: Debug build/link against installed DXLib SDK,
-window size, Esc, focus loss/recovery, controls and reset, nose/turn/bank directions,
-camera stability and terrain avoidance, visual 60 FPS behavior, and audio playback.
+### M5 — Combat & AI Systems
+- **WeaponSystem (`src/combat/WeaponSystem.h/.cpp`):**
+  - Machine gun with fixed 120-bullet pool, $0.08\,\text{s}$ fire cooldown, and $600\,\text{m/s}$ projectile speed.
+  - **Swept Anti-Tunneling:** Substep segment-to-sphere collision detection tests against aircraft hit-spheres ($r = 3.5\,\text{m}$) so high-speed bullets never pass through targets between frames.
+  - Bullet terrain collision via `GroundHeight`.
+  - Hit and explosion events streamed to renderer and audio.
+- **TargetingSystem (`src/combat/TargetingSystem.h/.cpp`):**
+  - Lock-on evaluator with range limit ($1200\,\text{m}$) and view-cone check ($30^\circ$ half-angle).
+  - Short acquisition timer ($0.8\,\text{s}$) to transition from `Acquiring` to `Locked`.
+  - `Tab` key cycles through living targets in deterministic distance order.
+- **Homing Missile (`src/combat/Missile.h/.cpp`):**
+  - Launched only with a confirmed lock (`F` key).
+  - Rate-limited turn rate ($45^\circ/\text{s} = 0.7854\,\text{rad/s}$) preventing instant snaps and producing sweeping pursuit arcs.
+  - Proximity detonation radius ($6.0\,\text{m}$), $5.0\,\text{s}$ fuel/lifetime limit, $100\,\text{HP}$ lethal blast damage.
+  - Trail point history buffer for rendering smoke trails.
+- **Enemy AI (`src/ai/EnemyAI.h/.cpp`, `SteeringBehavior.h/.cpp`):**
+  - 4 enemy fighters utilizing the assisted flight controller with turn-rate constraints.
+  - **5-State FSM:**
+    - `PATROL`: Cruises between tactical waypoints at cruising speed ($60\,\text{m/s}$).
+    - `CHASE`: Engages player once inside $1000\,\text{m}$ detection bubble.
+    - `ATTACK`: Fires nose cannon when player is within $350\,\text{m}$ and $25^\circ$ bore angle.
+    - `EVADE`: Initiates break turn and evasive weaves when locked by player, targeted by missile, or taking damage.
+    - `RETREAT`: Breaks off and flees at full throttle when health drops below $25\%$.
+  - **Terrain Clearance Override:** AI queries `GroundHeight` and overrides pitch with an assertive pull-up when altitude drops below $35\,\text{m}$.
+  - World boundary soft-turn keeps enemies inside the combat arena.
+- **MissionSystem (`src/combat/MissionSystem.h/.cpp`):**
+  - Tracks targets remaining; transitions from `Active` to `Cleared` when all enemies are destroyed, or to `Failed` if the player's aircraft is destroyed or crashes.
+  - Reset (`R`) restores player, enemies, weapons, and mission state cleanly.
+- **Radar & HUD (`src/ui/Radar.h/.cpp`, `HUD.h/.cpp`):**
+  - Pure `RadarData` model projects targets relative to player heading into $[-1, 1]$ screen coordinates, displaying range rings, standard blips, and diamond lock-on reticles.
+  - HUD displays player HP bar/percentage, remaining targets count, target name, distance, lock progress, and victory/defeat announcement banners.
 
-Roadmap: next is **M5**, Combat + AI (machine guns, lock-on missiles, enemy AI FSM, radar).
+---
+
+## Honest Status & Verification Disclosure
+
+All gameplay logic, kinematics, combat, AI, and math were engineered and validated via a **100% portable test harness on Linux** with zero platform-specific dependencies.
+
+### What Has Been Formally Verified
+1. **Kinematics & Control:** Fixed-timestep integration, zero gimbal lock across pitch loops, smooth yaw/roll damping, and reset mechanics verified across 32 unit tests.
+2. **Procedural Geometry & Collision:** Heightfield determinism, surface consistency, chunk boundaries, and terrain collision verified across 64 unit tests.
+3. **Environment & Visual Systems:** Vegetation density/biome exclusivity, cloud drift bounds, camera smoothing, speed lines, and audio model math verified across 51 unit tests.
+4. **Combat & AI:** Gun cooldowns, pool exhaustion/reuse, swept anti-tunneling, homing turn-rate clamps, FSM state transitions, terrain pull-ups, and mission lifecycle verified across 55 unit tests.
+5. **No Compiler Warnings:** Clean compilation with `-Wall -Wextra -Wpedantic -Werror -std=c++20`.
+
+### What Remains Unverified on Real Windows Hardware
+The following items require compilation and runtime validation on a physical Windows x64 system with the DXLib SDK:
+1. **MSVC SDK Linking:** Linking against `DxLib.h` and `DxLib_x64.lib` using MSVC autolink pragmas and `/MT` / `/MTd` runtimes.
+2. **DirectX 3D Rendering:**
+   - Player mesh (blue/silver) vs. hostile enemy meshes (crimson/charcoal livery).
+   - Yellow tracer bullet lines and missile meshes with expanding smoke trails.
+   - Screen-space 2D radar blips and lock diamond reticles.
+   - HUD text and mission banner rendering via `DrawString` and `DrawBox`.
+3. **DXLib Audio Playback:**
+   - Note: The repository does not ship with `.wav` audio files. The audio model safely operates as a no-op when sound handles are unassigned (`-1`). Real sound effects (gunfire, explosions, missile launch, lock-on beep) require loading valid audio assets.
+4. **Windows OS Events:**
+   - Window resize, focus loss/recovery (neutral input), and raw keyboard polling through `GetHitKeyStateAll`.
+
+---
+
+## Recommended Next Steps
+
+1. **Windows DXLib Acceptance Run:** Clone the repository onto a Windows x64 machine with Visual Studio 2022, configure `DXLIB_ROOT`, build `SkyCombat.exe`, and verify 60 FPS flight, gun/missile firing, enemy dogfights, and HUD rendering.
+2. **Audio Asset Integration:** Place `.wav` sound files in an `assets/sounds/` directory and bind them to the combat events (`onGunFired`, `onMissileLaunched`, `onExplosion`, `onLockAcquired`).

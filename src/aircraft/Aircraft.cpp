@@ -17,6 +17,7 @@ Aircraft interpolate(const Aircraft& a, const Aircraft& b, double t) {
     Aircraft result = b;
     result.transform = interpolate(a.transform, b.transform, t);
     result.speed = a.speed + (b.speed - a.speed) * t;
+    result.health = a.health + (b.health - a.health) * t;
     result.visualBank = a.visualBank + (b.visualBank - a.visualBank) * t;
     result.clearance = a.clearance + (b.clearance - a.clearance) * t;
     result.terrainWarning = b.terrainWarning;

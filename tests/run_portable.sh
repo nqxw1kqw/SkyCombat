@@ -18,10 +18,23 @@ sources=(
     src/world/CloudSystem.cpp
     src/effects/SpeedEffects.cpp
     src/audio/AudioModel.cpp
+    src/combat/WeaponSystem.cpp
+    src/combat/TargetingSystem.cpp
+    src/combat/Missile.cpp
+    src/combat/MissionSystem.cpp
+    src/ai/SteeringBehavior.cpp
+    src/ai/EnemyAI.cpp
     src/ui/HUD.cpp
+    src/ui/Radar.cpp
 )
-for suite in MathTests FlightTests TerrainTests WorldRenderTests PolishTests; do
-    g++ -std=c++20 -DSKY_PORTABLE -Wall -Wextra -Wpedantic -Werror -O2 -Isrc "tests/$suite.cpp" "${sources[@]}" -o "$build_dir/$suite"
+objs=()
+for src in "${sources[@]}"; do
+    obj="$build_dir/$(echo "$src" | tr '/' '_').o"
+    g++ -std=c++20 -DSKY_PORTABLE -Wall -Wextra -Wpedantic -Werror -O2 -Isrc -c "$src" -o "$obj"
+    objs+=("$obj")
+done
+for suite in MathTests FlightTests TerrainTests WorldRenderTests PolishTests CombatTests; do
+    g++ -std=c++20 -DSKY_PORTABLE -Wall -Wextra -Wpedantic -Werror -O2 -Isrc "tests/$suite.cpp" "${objs[@]}" -o "$build_dir/$suite"
     printf '%s: ' "$suite"
     "$build_dir/$suite"
 done

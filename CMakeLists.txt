@@ -21,7 +21,10 @@ add_executable(SkyCombat WIN32
     src/world/TerrainChunk.cpp
     src/world/VegetationSystem.cpp src/world/CloudSystem.cpp
     src/effects/SpeedEffects.cpp src/audio/AudioModel.cpp
-    src/ui/HUD.cpp
+    src/combat/WeaponSystem.cpp src/combat/TargetingSystem.cpp
+    src/combat/Missile.cpp src/combat/MissionSystem.cpp
+    src/ai/SteeringBehavior.cpp src/ai/EnemyAI.cpp
+    src/ui/HUD.cpp src/ui/Radar.cpp
     src/rendering/TerrainRenderer.cpp)
 target_compile_features(SkyCombat PRIVATE cxx_std_20)
 set_target_properties(SkyCombat PROPERTIES CXX_EXTENSIONS OFF
