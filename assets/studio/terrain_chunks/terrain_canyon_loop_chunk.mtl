@@ -1,0 +1,17 @@
+# Wavefront MTL: Seamless Canyon Terrain Chunk
+newmtl terrain_ground
+Kd 0.72 0.34 0.18
+illum 1
+
+newmtl terrain_peaks
+Kd 0.88 0.52 0.28
+illum 1
+
+newmtl terrain_fluid
+Kd 0.08 0.48 0.75
+Ke 0.02 0.15 0.30
+illum 2
+
+newmtl terrain_props
+Kd 0.52 0.24 0.14
+illum 1

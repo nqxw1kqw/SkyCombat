@@ -1,0 +1,45 @@
+# Wavefront Material File with Texture Atlas
+# Compatible with Unity, Unreal, Godot, Blender, Three.js
+
+newmtl fighter_jet_texture_mat
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.200 0.200 0.200
+Ns 25.0
+map_Kd fighter_jet_palette.png
+
+newmtl fuselage_wings
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.200 0.200 0.200
+Ns 25.0
+map_Kd fighter_jet_palette.png
+
+newmtl underside
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.200 0.200 0.200
+Ns 25.0
+map_Kd fighter_jet_palette.png
+
+newmtl tail_fins
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.200 0.200 0.200
+Ns 25.0
+map_Kd fighter_jet_palette.png
+
+newmtl canopy
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.200 0.200 0.200
+Ns 25.0
+map_Kd fighter_jet_palette.png
+
+newmtl engines
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.200 0.200 0.200
+Ns 25.0
+map_Kd fighter_jet_palette.png
+

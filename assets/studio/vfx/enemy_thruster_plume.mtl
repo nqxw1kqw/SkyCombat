@@ -1,0 +1,29 @@
+# Wavefront MTL: 3D Thruster & Missile Afterburner Plume VFX
+
+newmtl plume_core
+Ka 0.96 0.88 1.00
+Kd 0.96 0.88 1.00
+Ks 0.90 0.90 0.90
+Ke 0.82 0.75 0.85
+Ns 60.0
+d 1.00
+illum 2
+
+newmtl shock_diamonds
+Ka 0.85 0.35 1.00
+Kd 0.85 0.35 1.00
+Ks 0.90 0.90 0.90
+Ke 0.72 0.30 0.85
+Ns 60.0
+d 0.92
+illum 2
+
+newmtl outer_plume
+Ka 0.55 0.10 0.95
+Kd 0.55 0.10 0.95
+Ks 0.90 0.90 0.90
+Ke 0.47 0.09 0.81
+Ns 60.0
+d 0.72
+illum 2
+

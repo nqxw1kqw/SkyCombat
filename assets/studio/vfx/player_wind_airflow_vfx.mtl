@@ -1,0 +1,18 @@
+# Wavefront MTL: Player Supersonic Wind, Slipstream & Vortex VFX
+newmtl slipstream_ribbons
+Kd 0.75 0.95 1.00
+Ke 0.40 0.85 1.00
+d 0.55
+illum 2
+
+newmtl wingtip_vortices
+Kd 0.92 0.98 1.00
+Ke 0.65 0.90 1.00
+d 0.75
+illum 2
+
+newmtl mach_vapor_cone
+Kd 0.95 0.98 1.00
+Ke 0.60 0.82 1.00
+d 0.32
+illum 2
