@@ -1,6 +1,6 @@
-# SkyCombat World & Terrain Design (M2)
+# SkyCombat World & Terrain Design (M2 / M3)
 
-This document describes the world geometry, procedural heightfield synthesis, collision/mesh consistency, and terrain-aware flight rules implemented for Milestone M2.
+This document describes the world geometry, procedural heightfield synthesis, collision/mesh consistency, terrain-aware flight rules, biome palette, sky/fog parameters, and chunking/LOD architecture.
 
 ---
 
@@ -64,7 +64,7 @@ A safety floor ensures $H(x, z) \ge 2.0\,\text{m}$ across all coordinates.
                      │   ▲▲▲▲▲   ▲▲▲▲▲   │
                      │  ▲▲▲▲▲▲▲ ▲▲▲▲▲▲▲  │
                      │   ▲▲▲▲▲   ▲▲▲▲▲   │
--X (West: Meadows)   │      Center       │   +X (East: Meadows)
+-X (West: Purple)    │      Center       │   +X (East: Pink)
                      │     Grassland     │
                      │  Spawn (0,120,0)  │
                      │                   │
@@ -78,7 +78,8 @@ A safety floor ensures $H(x, z) \ge 2.0\,\text{m}$ across all coordinates.
 - **Center (0, 0):** Flat grassland plateau ($Y \approx 18\,\text{m}$), safe spawn at $Y = 120\,\text{m}$ ($>100\,\text{m}$ clearance).
 - **North ($+Z > 100\,\text{m}$):** High mountain peaks and elevated ridge corridors ($Y \approx 120\text{--}200\,\text{m}$).
 - **South ($-Z < -100\,\text{m}$):** Deep winding canyon floor ($Y \approx 2\text{--}10\,\text{m}$) flanked by $20\text{--}30\,\text{m}$ ridges.
-- **East ($+X$) & West ($-X$):** Gentle rolling meadowlands prepared for M3 floral/biome coloration.
+- **West ($-X < -150\,\text{m}$):** Purple flower fields (lavender blossom).
+- **East ($+X > 150\,\text{m}$):** Pink flower fields (rose blossom).
 
 ---
 
@@ -123,3 +124,72 @@ To eliminate visual/collision discrepancies (where aircraft collide with invisib
 `ChaseCamera` applies ground obstruction avoidance:
 - Whenever the camera's smoothed target position drops below `groundHeight(x, z) + 2.5 m`, its $Y$ position is clamped to `groundHeight + 2.5 m`.
 - View and up vectors are re-orthogonalized, preventing the camera from ever clipping under hills or canyon ridges.
+
+---
+
+## 7. Biome System & Palette Reference (M3)
+
+The `BiomeSystem` classifies every point on the terrain based on position $(x, z)$, height $y$, and surface slope normal $N$, with smooth $C^1$ weight blending across boundaries.
+
+| Biome | Primary Region | Defining Criteria | Base Color (RGB / Hex) | Notes |
+|---|---|---|---|---|
+| **Grassland** | Center ($|X| < 150\text{ m}, |Z| < 200\text{ m}$) | Low elevation ($Y \le 35\text{ m}$), flat slope | $(0.55, 0.77, 0.45)$ / `#8cc473` | Spring green airfield |
+| **PurpleFlowerField** | West ($-X < -120\text{ m}$) | Mid-elevation, moderate slope, $|Z| < 400\text{ m}$ | $(0.74, 0.58, 0.89)$ / `#bc94e2` | Lavender blossom (matches `terrain.obj`) |
+| **PinkFlowerField** | East ($+X > 120\text{ m}$) | Mid-elevation, moderate slope, $|Z| < 400\text{ m}$ | $(0.93, 0.71, 0.79)$ / `#edb5c9` | Rose blossom (matches `terrain.obj`) |
+| **Highland** | Rolling ridges ($Y \in [35, 85\text{ m}]$) | Moderate elevation, gentle slope | $(0.58, 0.69, 0.48)$ / `#94b07a` | Upland olive meadow |
+| **MountainRock** | North ($Z > 100\text{ m}$) / cliffs | $Y > 85\text{ m}$ or steep slope ($N_y < 0.82$) | $(0.58, 0.61, 0.56)$ / `#949c8f` | Slate rock; peaks $>160\text{ m}$ blend to snow `#d1d9e0` |
+| **ValleyFloor** | South canyon ($Z < -50\text{ m}$) | Valley mask $>0$, $Y \le 20\text{ m}$ | $(0.78, 0.68, 0.50)$ / `#c7ad80` | Sandy canyon riverbed |
+
+### Smooth Biome Blending
+Weights $w_i(x, z, y, N)$ are calculated using cubic smoothstep transitions and normalized so $\sum w_i = 1.0$. The final vertex/triangle color is:
+$$C = \sum_{i} w_i C_i$$
+This prevents visible tile seams or abrupt color jumps across chunk or biome boundaries.
+
+---
+
+## 8. Sky, Sun & Distance Fog Model (M3)
+
+`SkySystem` provides pure lighting, sky dome, and atmospheric fog parameters matching `docs/palette_reference.png`:
+
+- **Zenith color:** $(0.28, 0.58, 0.90)$ (`#4794e6`) — bright azure daytime sky dome.
+- **Horizon color:** $(0.70, 0.84, 0.95)$ (`#b2d6f2`) — pale hazy horizon blue.
+- **Sun direction:** Normalized $(0.4, 0.8, 0.3)$ — high-angle direct sunlight.
+- **Sun color:** $(1.0, 0.98, 0.90)$ — warm golden sunlight.
+- **Distance fog:**
+  - Fog color matches the horizon color $(0.70, 0.84, 0.95)$, causing distant geometry to blend seamlessly into the sky.
+  - Near distance: $500\,\text{m}$ (crystal-clear foreground combat).
+  - Far distance: $3500\,\text{m}$ (full atmospheric blend before camera far plane).
+  - Fog factor: linear interpolation between near and far distance.
+
+---
+
+## 9. Terrain Chunking & 3-Level LOD Scheme (M3)
+
+The $2000\,\text{m} \times 2000\,\text{m}$ world is partitioned into a $4 \times 4$ grid of 16 independent chunks, each $500\,\text{m} \times 500\,\text{m}$:
+
+| LOD Level | Cell Size | Cells per Chunk | Vertices per Chunk | Triangles per Chunk | Total World Triangles (16 Chunks) |
+|---|---|---|---|---|---|
+| **LOD 0 (High)** | $25\,\text{m}$ | $20 \times 20$ | $21 \times 21 = 441$ | $800$ | $12,800$ (exact parity with M2) |
+| **LOD 1 (Medium)**| $50\,\text{m}$ | $10 \times 10$ | $11 \times 11 = 121$ | $200$ | $3,200$ |
+| **LOD 2 (Low)** | $100\,\text{m}$| $5 \times 5$ | $6 \times 6 = 36$ | $50$ | $800$ |
+
+### Distance-Based LOD with Hysteresis
+To prevent visual popping (LOD thrashing when camera hovers near a threshold distance), chunks maintain their current LOD and switch based on separate expansion/contraction thresholds:
+
+- **LOD 0 $\leftrightarrow$ LOD 1:**
+  - Distance $> 650\,\text{m} \implies$ switch from LOD 0 to LOD 1.
+  - Distance $< 550\,\text{m} \implies$ switch from LOD 1 to LOD 0.
+  - Buffer zone: $100\,\text{m}$ hysteresis margin.
+- **LOD 1 $\leftrightarrow$ LOD 2:**
+  - Distance $> 1200\,\text{m} \implies$ switch from LOD 1 to LOD 2.
+  - Distance $< 1100\,\text{m} \implies$ switch from LOD 2 to LOD 1.
+  - Buffer zone: $100\,\text{m}$ hysteresis margin.
+
+### Edge Parity Between Adjacent Chunks
+Along any shared chunk boundary (e.g. $X = 0\,\text{m}$ between chunk $(1, cz)$ and chunk $(2, cz)$), boundary vertices at the same LOD evaluate the identical coordinate $(X, Z)$ against the pure `IHeightProvider` and `BiomeSystem`. This guarantees identical elevation and color along the seam, eliminating cracks.
+
+---
+
+## 10. Distant Mountain Silhouettes (M3)
+
+Beyond the northern boundary ($Z \in [1050, 1700]\,\text{m}$), a low-poly proxy ridge of 8 distinct mountain peaks ($Y \approx 180\text{--}350\,\text{m}$) is generated as lightweight pure mesh data (~30 triangles). Colored in atmospheric slate blue (`#808c9e`), these silhouettes rise above the horizon and fade gracefully into the distance fog without requiring complex terrain streaming.

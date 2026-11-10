@@ -17,6 +17,8 @@ add_executable(SkyCombat WIN32
     src/aircraft/Aircraft.cpp src/aircraft/FlightController.cpp
     src/camera/ChaseCamera.cpp src/rendering/AircraftRenderer.cpp
     src/world/TerrainSystem.cpp src/world/WorldCollision.cpp
+    src/world/BiomeSystem.cpp src/world/SkySystem.cpp
+    src/world/TerrainChunk.cpp
     src/rendering/TerrainRenderer.cpp)
 target_compile_features(SkyCombat PRIVATE cxx_std_20)
 set_target_properties(SkyCombat PROPERTIES CXX_EXTENSIONS OFF
