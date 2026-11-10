@@ -240,6 +240,39 @@ void AircraftRenderer::drawMissile(const Missile& m) const {
                VGet(float(p1.x), float(p1.y), float(p1.z)),
                GetColor(255, 255, 255));
 
+    // Rocket plume (studio prefab): authored at missile scale with its
+    // base at the origin and the flame along -Z, so it only needs a basis
+    // built from the missile's forward vector. Additive, no depth write.
+    static const ObjMesh missilePlume = [] {
+        ObjMesh mesh;
+        loadFirstRaw(mesh, {"assets/studio/vfx/missile_thruster_vfx_prefab.obj",
+                            "../assets/studio/vfx/missile_thruster_vfx_prefab.obj",
+                            "../../assets/studio/vfx/missile_thruster_vfx_prefab.obj"});
+        return mesh;
+    }();
+    if (!missilePlume.empty()) {
+        const Vec3 f = normalized(m.forward());
+        Vec3 r = cross(Vec3{0, 1, 0}, f);
+        r = length(r) < 1e-6 ? Vec3{1, 0, 0} : normalized(r);
+        const Vec3 u = cross(f, r);
+        const double t = GetNowCount() * 0.001;
+        const double flicker = 1.0 + 0.08 * std::sin(t * 53.0) + 0.05 * std::sin(t * 37.0 + 0.6);
+        const Vec3 base = m.position() - f * 1.5; // anchor mid-body, flame trails behind
+        SetDrawBlendMode(DX_BLENDMODE_ADD, 205);
+        SetWriteZBuffer3D(FALSE);
+        for (const auto& tri : missilePlume.triangles()) {
+            VECTOR v[3];
+            for (int i = 0; i < 3; ++i) {
+                const Vec3 p = tri.p[i];
+                const Vec3 w = base + r * p.x + u * p.y + f * (p.z * 1.1 * flicker);
+                v[i] = VGet(float(w.x), float(w.y), float(w.z));
+            }
+            DrawTriangle3D(v[0], v[1], v[2], toDxColor(tri.color), TRUE);
+        }
+        SetWriteZBuffer3D(TRUE);
+        SetDrawBlendMode(DX_BLENDMODE_NOBLEND, 0);
+    }
+
     // Smoke trail
     const auto& tr = m.trail();
     for (size_t i = 1; i < tr.size(); ++i) {
