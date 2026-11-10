@@ -101,7 +101,7 @@ uint32_t BiomeSystem::evaluatePackedColor(double x, double z, double y, const Ve
 
     // Directional lighting with soft ambient fill for low-poly clarity
     Vec3 l = normalized(lightDir);
-    double diffuse = 0.58 + 0.42 * std::max(0.0, dot(normal, l));
+    double diffuse = 0.72 + 0.28 * std::max(0.0, dot(normal, l));
 
     int r = std::clamp(int(base.x * diffuse * 255.0 + 0.5), 0, 255);
     int g = std::clamp(int(base.y * diffuse * 255.0 + 0.5), 0, 255);

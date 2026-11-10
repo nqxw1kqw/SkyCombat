@@ -15,6 +15,7 @@
 #include "combat/TargetingSystem.h"
 #include "combat/MissionSystem.h"
 #include "ai/EnemyAI.h"
+#include "ui/FlightReticle.h"
 #include "ui/HUD.h"
 #include "ui/Radar.h"
 #include <DxLib.h>
@@ -27,10 +28,16 @@ namespace {
 
 VECTOR vector(Vec3 v) { return VGet(float(v.x), float(v.y), float(v.z)); }
 
-KeyboardState poll() {
+struct PolledInput {
+    KeyboardState keys;
+    MouseState mouse;
+};
+
+PolledInput poll() {
     // Inactive windows release controls rather than retaining stale input.
     if (!GetActiveFlag()) return {};
-    return {
+    PolledInput out;
+    out.keys = {
         CheckHitKey(KEY_INPUT_W) != 0,
         CheckHitKey(KEY_INPUT_S) != 0,
         CheckHitKey(KEY_INPUT_A) != 0,
@@ -41,8 +48,17 @@ KeyboardState poll() {
         CheckHitKey(KEY_INPUT_ESCAPE) != 0,
         CheckHitKey(KEY_INPUT_SPACE) != 0,
         CheckHitKey(KEY_INPUT_F) != 0,
-        CheckHitKey(KEY_INPUT_TAB) != 0
+        CheckHitKey(KEY_INPUT_TAB) != 0,
+        CheckHitKey(KEY_INPUT_C) != 0
     };
+    int mx = 0, my = 0;
+    GetMousePoint(&mx, &my);
+    const int buttons = GetMouseInput();
+    out.mouse = {mx, my, 1280, 720,
+                 (buttons & MOUSE_INPUT_LEFT) != 0,
+                 (buttons & MOUSE_INPUT_RIGHT) != 0,
+                 true};
+    return out;
 }
 
 std::vector<EnemyAI> createInitialEnemies() {
@@ -63,6 +79,7 @@ int Game::run() {
     SetMainWindowText(L"SkyCombat - M5 Combat + AI");
     SetAlwaysRunFlag(TRUE);
     if (DxLib_Init() == -1) return 1;
+    SetMouseDispFlag(FALSE); // the steering marker replaces the OS cursor in play
 
     SkySystem skySystem;
     int bgR = int(skySystem.colors().horizon.x * 255.0 + 0.5);
@@ -107,16 +124,24 @@ int Game::run() {
 
     double fpsTime = 0, fps = 0;
     int frames = 0;
+    bool paused = false;
+    bool noseCamera = false;
 
     while (ProcessMessage() == 0) {
-        const auto keys = poll();
+        const auto polled = poll();
         const double dt = time.tick();
 
         // Edge actions are latched at render cadence so a short R press is not lost.
-        auto state = input.update(keys);
-        if (state.quit) break;
+        auto state = input.update(polled.keys, polled.mouse, dt);
+        if (state.pausePressed) {
+            paused = !paused;
+            SetMouseDispFlag(paused ? TRUE : FALSE); // pause hands the cursor back
+        }
+        if (state.switchCamera) noseCamera = !noseCamera;
 
-        if (state.reset) {
+        if (paused) {
+            time.reset(); // drain the accumulator so resume does not fast-forward
+        } else if (state.reset) {
             current.reset();
             previous = current;
             camera.reset(current, &terrainSystem);
@@ -126,6 +151,8 @@ int Game::run() {
             missionSystem.reset(4);
             enemies = createInitialEnemies();
         } else {
+            bool switchTargetOnce = state.switchTarget;
+            bool fireMissileOnce = state.fireMissile;
             while (time.consumeStep()) {
                 previous = current;
 
@@ -149,14 +176,21 @@ int Game::run() {
                         enemyAlive.push_back(e.isAlive());
                     }
 
-                    if (state.switchTarget) {
-                        targetingSystem.cycleTarget(enemyPositions, enemyAlive);
+                    // Lock-on is a held action: hold the right mouse button
+                    // to acquire; releasing it drops the lock entirely.
+                    if (state.lockOn) {
+                        if (switchTargetOnce) {
+                            targetingSystem.cycleTarget(enemyPositions, enemyAlive);
+                            switchTargetOnce = false;
+                        }
+                        targetingSystem.update(Time::fixedDelta, current.transform.position,
+                                               current.transform.forward(), enemyPositions, enemyAlive);
+                    } else {
+                        targetingSystem.reset();
                     }
 
-                    targetingSystem.update(Time::fixedDelta, current.transform.position,
-                                           current.transform.forward(), enemyPositions, enemyAlive);
-
-                    if (state.fireMissile) {
+                    if (fireMissileOnce) {
+                        fireMissileOnce = false;
                         Vec3 missileSpawn = current.transform.position - current.transform.up() * 1.5;
                         weaponSystem.firePlayerMissile(missileSpawn, current.transform.forward(),
                                                       targetingSystem.selectedTargetIndex(),
@@ -211,8 +245,18 @@ int Game::run() {
         camera.update(rendered, dt, &terrainSystem);
         const auto& pose = camera.pose();
 
+        // Optional nose camera (C): sit on the canopy looking down the nose;
+        // the chase pose still drives LOD selection.
+        CameraPose renderPose = pose;
+        if (noseCamera) {
+            renderPose.position = rendered.transform.position + rendered.transform.up() * 1.6 +
+                                  rendered.transform.forward() * 8.0;
+            renderPose.target = renderPose.position + rendered.transform.forward() * 120.0;
+            renderPose.up = rendered.transform.up();
+        }
+
         // Update cloud drift and chunk LODs
-        cloudSystem.update(dt);
+        if (!paused) cloudSystem.update(dt);
         terrainSystem.updateLODs(pose.position);
 
         ClearDrawScreen();
@@ -221,7 +265,7 @@ int Game::run() {
         SetUseBackCulling(FALSE);
         SetUseLighting(FALSE);
 
-        SetCameraPositionAndTargetAndUpVec(vector(pose.position), vector(pose.target), vector(pose.up));
+        SetCameraPositionAndTargetAndUpVec(vector(renderPose.position), vector(renderPose.target), vector(renderPose.up));
         SetupCamera_Perspective(float(radians(pose.fovDegrees)));
 
         // Render 3D scene
@@ -230,8 +274,8 @@ int Game::run() {
         terrainRenderer.drawVegetation(vegetationSystem);
         terrainRenderer.drawClouds(cloudSystem);
 
-        // Render player aircraft
-        if (!rendered.crashed && rendered.health > 0.0) {
+        // Render player aircraft (hidden in nose-camera view)
+        if (!noseCamera && !rendered.crashed && rendered.health > 0.0) {
             aircraftRenderer.draw(rendered);
         }
 
@@ -296,6 +340,15 @@ int Game::run() {
                                        targetingSystem.lockState(),
                                        missionSystem.status());
         HUD::draw(hudData);
+
+        // Steering reticle + pause overlay
+        if (!paused) {
+            FlightReticle::draw(640, 360, 640, 360, state.mouseNX, state.mouseNY,
+                                MouseFlightConfig{}.deadzone, false);
+        } else {
+            DrawString(552, 344, L"PAUSED", GetColor(255, 255, 255));
+            DrawString(496, 368, L"Esc: Resume   |   Close window: Quit", GetColor(200, 215, 230));
+        }
 
         ScreenFlip();
     }

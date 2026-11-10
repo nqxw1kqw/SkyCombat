@@ -18,13 +18,17 @@ void FlightController::update(Aircraft& a, const FlightInput& input, double dt, 
 
     const double pitch = std::clamp(input.pitch, -1.0, 1.0);
     const double turn = std::clamp(input.turn, -1.0, 1.0);
+    const double roll = std::clamp(input.roll, -1.0, 1.0);
+    // Manual roll (A/D) couples into a gentle coordinated yaw so rolling
+    // still steers the aircraft; mouse/keyboard yaw remains primary.
+    const double turnEff = std::clamp(turn - roll * 0.5, -1.0, 1.0);
     const double throttle = std::clamp(input.throttle, -1.0, 1.0);
 
     a.speed = std::clamp(a.speed + throttle * (throttle >= 0 ? FlightTuning::acceleration : FlightTuning::deceleration) * dt,
                          FlightTuning::minSpeed, FlightTuning::maxSpeed);
 
     // World-up yaw, then local-right pitch. W uses negative X rotation to raise +Z.
-    a.transform.orientation = (Quat::axisAngle({0, 1, 0}, turn * FlightTuning::yawRate * dt) *
+    a.transform.orientation = (Quat::axisAngle({0, 1, 0}, turnEff * FlightTuning::yawRate * dt) *
                                a.transform.orientation *
                                Quat::axisAngle({1, 0, 0}, -pitch * FlightTuning::pitchRate * dt)).normalized();
 
@@ -66,7 +70,11 @@ void FlightController::update(Aircraft& a, const FlightInput& input, double dt, 
         }
     }
 
-    a.visualBank += (-turn * FlightTuning::maxBank - a.visualBank) * response(FlightTuning::levelResponse, dt);
+    // Bank: a held manual roll wins over the turn-induced auto-bank; with
+    // neither input the bank eases back to level on its own.
+    const double bankTarget = std::abs(roll) > 0.001 ? roll * FlightTuning::maxBank
+                                                     : -turnEff * FlightTuning::maxBank;
+    a.visualBank += (bankTarget - a.visualBank) * response(FlightTuning::levelResponse, dt);
     a.transform.position = a.transform.position + a.transform.forward() * (a.speed * dt);
 
     if (terrain) {

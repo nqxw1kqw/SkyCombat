@@ -1,0 +1,39 @@
+# Wavefront Material File for Low Poly Fighter Jet
+# Solid colors strictly per specification
+
+newmtl fuselage_wings
+Ka 0.25 0.27 0.30
+Kd 0.25 0.27 0.30
+Ks 0.15 0.15 0.15
+Ns 20.0
+illum 2
+
+newmtl underside
+Ka 0.75 0.77 0.80
+Kd 0.75 0.77 0.80
+Ks 0.15 0.15 0.15
+Ns 20.0
+illum 2
+
+newmtl tail_fins
+Ka 0.10 0.35 0.80
+Kd 0.10 0.35 0.80
+Ks 0.25 0.25 0.25
+Ns 30.0
+illum 2
+
+newmtl canopy
+Ka 0.45 0.80 0.95
+Kd 0.45 0.80 0.95
+Ks 0.75 0.85 0.95
+Ns 50.0
+d 0.85
+illum 2
+
+newmtl engines
+Ka 0.90 0.45 0.10
+Kd 0.90 0.45 0.10
+Ks 0.50 0.25 0.05
+Ke 0.80 0.40 0.08
+Ns 25.0
+illum 2

@@ -10,14 +10,17 @@ Milestones M1 through M5 are fully implemented. **202 / 202 portable tests are p
 
 | Control | Action | Details |
 | :--- | :--- | :--- |
-| **W / S** | Pitch Down / Up | Assists flight attitude; inverted flight enabled through pure quaternion rotation |
-| **A / D** | Turn Left / Right | Coordinated yaw turn with assisted visual and aerodynamic banking |
+| **Mouse move** | Steer (Pitch + Yaw) | Cursor offset from screen centre; radial deadzone 0.08, response curve 1.4, smoothed (see `MouseFlightConfig`) |
+| **W / S** | Pitch assist | Adds pitch on top of the mouse command (weight 0.75) |
+| **A / D** | Manual Roll | Roll left / right; overrides auto-bank while held and couples into a gentle turn |
 | **LShift / LCtrl** | Throttle Up / Down | Accelerate / decelerate airspeed ($25\text{--}140\,\text{m/s}$) |
-| **Space** | Fire Machine Gun | Rapid-fire cannon ($600\,\text{m/s}$, $0.08\,\text{s}$ cooldown, swept anti-tunneling) |
+| **Left Mouse / Space** | Fire Machine Gun | Rapid-fire cannon ($600\,\text{m/s}$, $0.08\,\text{s}$ cooldown, swept anti-tunneling) |
+| **Right Mouse (hold)** | Lock-On | Targeting only acquires while held; release drops the lock |
 | **F** | Launch Missile | Fires homing missile ($220\,\text{m/s}$, $45^\circ/\text{s}$ turn limit); requires target lock |
-| **Tab** | Cycle Target | Selects nearest enemy or cycles to next living target within range |
+| **Tab** | Cycle Target | While holding lock-on, cycles living targets in range |
+| **C** | Switch Camera | Chase camera / nose camera |
 | **R** | Reset / Restart | Respawns player and resets flight controller, camera, and combat mission |
-| **Esc** | Quit | Closes application window |
+| **Esc** | Pause / Resume | Pausing returns the mouse cursor; close the window to quit |
 
 ---
 

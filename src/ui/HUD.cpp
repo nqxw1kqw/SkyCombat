@@ -120,7 +120,7 @@ void HUD::draw(const HUDData& data) {
     DrawFormatString(16, 64, lockColor, L"%S", data.targetInfoString.c_str());
 
     // Line 4: Controls help
-    DrawString(16, 88, L"Space Gun | F Missile (Locked) | Tab Cycle Target | W/S/A/D Fly | Shift/Ctrl Speed | R Reset",
+    DrawString(16, 88, L"Mouse Steer | LMB Gun | Hold RMB Lock | F Missile | Tab Target | A/D Roll | Shift/Ctrl Speed | C Cam | R Reset | Esc Pause",
                GetColor(220, 230, 240));
 
     // Flight assist status

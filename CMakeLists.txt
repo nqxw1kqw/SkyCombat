@@ -13,9 +13,9 @@ get_filename_component(DXLIB_LIBRARY_DIR "${DXLIB_LIBRARY}" DIRECTORY)
 # Official MSVC SDK headers select the matching DXLib/dependency libraries via
 # pragma comment(lib). Keep the complete SDK .lib directory available to LINK.
 add_executable(SkyCombat WIN32
-    src/main.cpp src/core/Game.cpp src/core/Input.cpp src/core/Time.cpp
+    src/main.cpp src/core/Game.cpp src/core/Input.cpp src/core/MouseSteering.cpp src/core/Time.cpp
     src/aircraft/Aircraft.cpp src/aircraft/FlightController.cpp
-    src/camera/ChaseCamera.cpp src/rendering/AircraftRenderer.cpp
+    src/camera/ChaseCamera.cpp src/rendering/AircraftRenderer.cpp src/rendering/ObjMesh.cpp
     src/world/TerrainSystem.cpp src/world/WorldCollision.cpp
     src/world/BiomeSystem.cpp src/world/SkySystem.cpp
     src/world/TerrainChunk.cpp
@@ -24,7 +24,7 @@ add_executable(SkyCombat WIN32
     src/combat/WeaponSystem.cpp src/combat/TargetingSystem.cpp
     src/combat/Missile.cpp src/combat/MissionSystem.cpp
     src/ai/SteeringBehavior.cpp src/ai/EnemyAI.cpp
-    src/ui/HUD.cpp src/ui/Radar.cpp
+    src/ui/HUD.cpp src/ui/Radar.cpp src/ui/FlightReticle.cpp
     src/rendering/TerrainRenderer.cpp)
 target_compile_features(SkyCombat PRIVATE cxx_std_20)
 set_target_properties(SkyCombat PROPERTIES CXX_EXTENSIONS OFF

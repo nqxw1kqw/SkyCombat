@@ -5,6 +5,7 @@ build_dir=$(mktemp -d)
 trap 'rm -rf "$build_dir"' EXIT
 sources=(
     src/core/Input.cpp
+    src/core/MouseSteering.cpp
     src/core/Time.cpp
     src/aircraft/Aircraft.cpp
     src/aircraft/FlightController.cpp
@@ -33,7 +34,7 @@ for src in "${sources[@]}"; do
     g++ -std=c++20 -DSKY_PORTABLE -Wall -Wextra -Wpedantic -Werror -O2 -Isrc -c "$src" -o "$obj"
     objs+=("$obj")
 done
-for suite in MathTests FlightTests TerrainTests WorldRenderTests PolishTests CombatTests; do
+for suite in MathTests FlightTests TerrainTests WorldRenderTests PolishTests CombatTests MouseSteeringTests; do
     g++ -std=c++20 -DSKY_PORTABLE -Wall -Wextra -Wpedantic -Werror -O2 -Isrc "tests/$suite.cpp" "${objs[@]}" -o "$build_dir/$suite"
     printf '%s: ' "$suite"
     "$build_dir/$suite"
